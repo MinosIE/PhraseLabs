@@ -178,7 +178,7 @@ const categoryStats = computed(() =>
           <span class="muted">{{ item.done }} / {{ item.total }}</span>
         </div>
         <div class="progress-track">
-          <div class="progress-fill" :style="{ width: `${item.percent}%` }"></div>
+          <div class="progress-fill" :style="{ transform: `scaleX(${item.percent / 100})` }"></div>
         </div>
       </div>
     </section>

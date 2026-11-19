@@ -137,6 +137,9 @@ function onReset(): void {
         <div class="field">
           <label for="goal">每日目标：{{ settingsStore.settings.dailyGoal }} 题</label>
           <input id="goal" type="range" min="5" max="100" step="5"
+            role="slider" aria-valuemin="5" aria-valuemax="100"
+            :aria-valuenow="settingsStore.settings.dailyGoal"
+            :aria-valuetext="`${settingsStore.settings.dailyGoal} 题`"
             :value="settingsStore.settings.dailyGoal" @input="onGoal" />
         </div>
         <SelectField label="默认训练模式" :model-value="settingsStore.settings.mode" :options="modes" @update:model-value="onMode" />

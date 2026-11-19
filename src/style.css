@@ -5,15 +5,17 @@
   --surface-2: #f8f5ee;
   --ink: #1c1c19;
   --ink-2: #45443e;
-  --muted: #78766d;
+  --muted: #67655b;
   --line: #ded9ce;
   --line-strong: #c6c0b2;
   --accent: #b8481f;
   --accent-ink: #fff8f3;
-  --accent-soft: #f7e6db;
+  --accent-soft: #faeee7;
+  --on-ink-muted: #b8b3a4;
+  --on-ink-accent: #ef9a72;
   --teal: #1f6b5f;
   --teal-soft: #e2efea;
-  --gold: #98701f;
+  --gold: #856116;
   --gold-soft: #f7edd6;
   --red: #a32d2d;
   --red-soft: #f9e4e1;
@@ -44,14 +46,16 @@
   --muted: #9d9a8e;
   --line: #35362f;
   --line-strong: #4a4b42;
-  --accent: #e8794b;
+  --accent: #d98a63;
   --accent-ink: #20150f;
   --accent-soft: #3a241c;
+  --on-ink-muted: #5b594f;
+  --on-ink-accent: #a33f18;
   --teal: #70bda9;
   --teal-soft: #1e3631;
   --gold: #d5ae5c;
   --gold-soft: #342d1c;
-  --red: #ef8b82;
+  --red: #e5968e;
   --red-soft: #3b2221;
   --shadow: 0 20px 44px -28px rgba(0, 0, 0, 0.8);
   color-scheme: dark;
@@ -71,7 +75,6 @@ body {
   margin: 0;
   min-width: 320px;
   background-color: var(--paper);
-  background-image: radial-gradient(circle at 8% -12%, rgba(184, 72, 31, 0.07), transparent 42%);
 }
 
 a {
@@ -393,7 +396,7 @@ h3 {
 }
 
 .today-card .eyebrow {
-  color: var(--accent);
+  color: var(--on-ink-accent);
 }
 
 .today-number {
@@ -404,7 +407,7 @@ h3 {
 
 .today-number small {
   font-size: 18px;
-  color: var(--muted);
+  color: var(--on-ink-muted);
   letter-spacing: 0;
 }
 
@@ -514,19 +517,22 @@ h3 {
 }
 
 .today-card .progress-track {
-  background: rgba(255, 255, 255, 0.14);
+  background: color-mix(in srgb, var(--paper) 16%, transparent);
   margin-top: 18px;
 }
 
 .progress-fill {
+  width: 100%;
   height: 100%;
   border-radius: 999px;
   background: var(--accent);
-  transition: width 0.45s cubic-bezier(0.2, 0.7, 0.2, 1);
+  transform-origin: left center;
+  transform: scaleX(0);
+  transition: transform 0.28s cubic-bezier(0.2, 0, 0, 1);
 }
 
 .today-card .progress-fill {
-  background: var(--accent);
+  background: var(--on-ink-accent);
 }
 
 /* 学习页 */
@@ -687,7 +693,7 @@ h3 {
 }
 
 .study-card.shake {
-  animation: shake 0.32s ease;
+  animation: shake 0.3s cubic-bezier(0.2, 0, 0, 1);
 }
 
 .mode-tag {
@@ -772,14 +778,14 @@ h3 {
 
 .answer-field.is-blank {
   border-color: var(--red);
-  animation: shake 0.32s ease;
+  animation: shake 0.3s cubic-bezier(0.2, 0, 0, 1);
 }
 
 .answer-blank {
   margin-top: 10px;
   color: var(--red);
   font-size: 12px;
-  animation: rise 0.2s ease both;
+  animation: rise 0.2s cubic-bezier(0.2, 0, 0, 1) both;
 }
 
 .answer-hint {
@@ -817,7 +823,7 @@ kbd {
   background: var(--gold-soft);
   color: var(--ink-2);
   font-size: 13px;
-  animation: rise 0.24s ease both;
+  animation: rise 0.24s cubic-bezier(0.2, 0, 0, 1) both;
 }
 
 .feedback {
@@ -926,7 +932,6 @@ kbd {
   font: 600 10px/1 var(--font-mono);
   letter-spacing: 0.14em;
   color: var(--muted);
-  text-transform: uppercase;
 }
 
 .answer-card-head {
@@ -978,7 +983,6 @@ kbd {
 .meta-item span {
   font: 600 10px/1 var(--font-mono);
   letter-spacing: 0.09em;
-  text-transform: uppercase;
   color: var(--muted);
 }
 
@@ -1135,7 +1139,6 @@ kbd {
 .select-label {
   font: 600 11px/1.4 var(--font-mono);
   letter-spacing: 0.1em;
-  text-transform: uppercase;
   color: var(--muted);
 }
 
@@ -1193,7 +1196,7 @@ kbd {
   box-shadow: var(--shadow);
   max-height: 240px;
   overflow-y: auto;
-  animation: rise 0.16s ease both;
+  animation: rise 0.16s cubic-bezier(0.2, 0, 0, 1) both;
 }
 
 .select-option {
@@ -1451,7 +1454,7 @@ kbd {
   padding: 20px;
   background: rgba(20, 19, 16, 0.46);
   backdrop-filter: blur(4px);
-  animation: fadeIn 0.18s ease both;
+  animation: fadeIn 0.18s cubic-bezier(0.2, 0, 0, 1) both;
 }
 
 .modal-card {

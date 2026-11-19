@@ -57,10 +57,23 @@ let ctx: ReturnType<typeof gsap.context> | undefined
 onMounted(() => {
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
   ctx = gsap.context(() => {
-    gsap.from(iconEl.value, { scale: 0, rotation: -35, duration: 0.5, ease: 'back.out(2)' })
-    gsap.from(titleEl.value, { y: 12, autoAlpha: 0, duration: 0.36, delay: 0.08 })
+    gsap.from(iconEl.value, {
+      scale: 0.95,
+      autoAlpha: 0,
+      rotation: -12,
+      duration: 0.24,
+      ease: 'power2.out',
+    })
+    gsap.from(titleEl.value, {
+      y: 8,
+      autoAlpha: 0,
+      duration: 0.24,
+      delay: 0.04,
+      ease: 'power2.out',
+    })
 
     if (tone.value === 'correct') {
+      // 一次性装饰性庆祝：craft-floor §5 允许回弹，但仍压到 600ms 内
       gsap.fromTo(
         '.confetti-piece',
         { x: 0, y: 0, scale: 1, autoAlpha: 1 },
@@ -68,10 +81,10 @@ onMounted(() => {
           x: () => gsap.utils.random(-110, 110),
           y: () => gsap.utils.random(-90, 35),
           rotation: () => gsap.utils.random(-220, 220),
-          scale: 0,
+          scale: 0.6,
           autoAlpha: 0,
-          duration: 1.1,
-          stagger: 0.025,
+          duration: 0.6,
+          stagger: 0.02,
           ease: 'power2.out',
         },
       )
@@ -79,11 +92,11 @@ onMounted(() => {
 
     if (milestoneEl.value) {
       gsap.from(milestoneEl.value, {
-        scale: 0.5,
+        scale: 0.95,
         autoAlpha: 0,
-        duration: 0.5,
-        delay: 0.18,
-        ease: 'back.out(2.5)',
+        duration: 0.26,
+        delay: 0.1,
+        ease: 'power2.out',
       })
     }
   }, root.value ?? undefined)
@@ -145,7 +158,7 @@ onUnmounted(() => ctx?.revert())
       </div>
     </div>
     <div class="progress-track mini">
-      <div class="progress-fill" :style="{ width: `${goalPercent}%` }"></div>
+      <div class="progress-fill" :style="{ transform: `scaleX(${goalPercent / 100})` }"></div>
     </div>
 
     <div v-if="goalReached" class="goal-banner">今日目标达成，收工值得庆祝。</div>

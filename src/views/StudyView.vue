@@ -329,7 +329,7 @@ onUnmounted(() => {
             </span>
           </div>
           <div class="progress-track" style="margin-top: 10px">
-            <div class="progress-fill" :style="{ width: `${questionPercent}%` }"></div>
+            <div class="progress-fill" :style="{ transform: `scaleX(${questionPercent / 100})` }"></div>
           </div>
           <div class="answer-record" aria-label="本轮逐题结果">
             <span

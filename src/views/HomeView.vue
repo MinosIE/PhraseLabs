@@ -94,9 +94,9 @@ function startAll(): void {
           {{ String(today.reviewed).padStart(2, '0') }}<small> / {{ settingsStore.settings.dailyGoal }}</small>
         </div>
         <div class="progress-track">
-          <div class="progress-fill" :style="{ width: `${goalPercent}%` }"></div>
+          <div class="progress-fill" :style="{ transform: `scaleX(${goalPercent / 100})` }"></div>
         </div>
-        <p class="small" style="margin-top: 16px; color: var(--muted)">
+        <p class="small" style="margin-top: 16px; color: var(--on-ink-muted)">
           今日新学 {{ today.learned }} 条 · 答对 {{ today.correct }} 题
         </p>
       </aside>
