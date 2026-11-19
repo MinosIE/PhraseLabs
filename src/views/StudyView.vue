@@ -23,6 +23,8 @@ const goalReached = ref(false)
 const modalRef = ref<HTMLElement | null>(null)
 const submitting = ref(false)
 const speaking = ref(false)
+// 本题被用户标记为「我会了」，只影响重练与排期，不影响正确率
+const mastered = ref(false)
 
 const modeLabel: Record<StudyMode, string> = {
   'zh-en': '中 → 英',
@@ -102,11 +104,22 @@ const hintText = computed(() => {
   return `${preview} · 共 ${words.length} 段`
 })
 
+/** 把短语转成挖空用的正则：省略号代表可插入内容，其余字符转义 */
+function clozePattern(text: string): RegExp {
+  const escaped = text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return new RegExp(escaped.replace(/…/g, '.{0,60}?'), 'i')
+}
+
 const clozeSentence = computed(() => {
   const phrase = current.value?.phrase
   if (!phrase) return ''
-  const escaped = phrase.en.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  return phrase.exampleEn.replace(new RegExp(escaped, 'i'), '______')
+  // 含 one's / someone / your 的短语在例句里只会出现具体形式，用 enAliases 兜底
+  const forms = [phrase.en, ...(phrase.enAliases ?? [])]
+  for (const form of forms) {
+    const pattern = clozePattern(form)
+    if (pattern.test(phrase.exampleEn)) return phrase.exampleEn.replace(pattern, '______')
+  }
+  return phrase.exampleEn
 })
 
 /**
@@ -138,6 +151,7 @@ watch(
   () => current.value?.phrase.id,
   () => {
     hintOpen.value = false
+    mastered.value = false
   },
   { immediate: true },
 )
@@ -211,6 +225,7 @@ function goNext(): void {
   result.value = null
   hintOpen.value = false
   goalReached.value = false
+  mastered.value = false
   sessionStore.next()
   inputKey.value = `${sessionStore.index}-${Date.now()}`
 }
@@ -222,16 +237,20 @@ function skip(): void {
   result.value = null
   hintOpen.value = false
   goalReached.value = false
+  mastered.value = false
   sessionStore.skip()
   inputKey.value = `${sessionStore.index}-${Date.now()}`
 }
 
-function markCorrect(): void {
+/**
+ * 用户声明这条短语已经掌握：只把它提到「已掌握」并撤掉本轮重练，
+ * 不修改答案、正确率、连对与当日统计——答错了就是答错了。
+ */
+function markMastered(): void {
   if (!current.value || !result.value || result.value.verdict === 'correct') return
-  progressStore.markCorrect(current.value.phrase.id)
-  // 本轮答案、正确率与连对同步纠正，并撤回队列里的重练项
-  sessionStore.amend()
-  result.value = { verdict: 'correct', distance: 0, feedback: '已手动标记为掌握。' }
+  progressStore.markMastered(current.value.phrase.id)
+  sessionStore.dropRepeat()
+  mastered.value = true
 }
 
 function restart(): void {
@@ -241,6 +260,7 @@ function restart(): void {
   result.value = null
   hintOpen.value = false
   goalReached.value = false
+  mastered.value = false
   sessionStore.start()
   inputKey.value = `0-${Date.now()}`
 }
@@ -473,9 +493,10 @@ onUnmounted(() => {
             :goal-reached="goalReached"
             :speaking="speaking"
             :can-speak="settingsStore.voiceAvailable"
+            :mastered="mastered"
             @next="goNext"
             @speak="speakCurrent"
-            @mark-correct="markCorrect"
+            @mark-mastered="markMastered"
           />
         </div>
       </div>

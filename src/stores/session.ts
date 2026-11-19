@@ -27,8 +27,6 @@ export const useSessionStore = defineStore('session', () => {
   /** 本轮开始时的题目总数；重练追加不影响它，进度条因此不会倒退 */
   const plannedTotal = ref(0)
   const scopeLabel = ref('')
-  /** 最近一次打断连对前的连对数，用于「我其实答对了」纠错时恢复 */
-  let comboBeforeBreak = 0
 
   const current = computed<{ phrase: Phrase; mode: StudyMode } | null>(() => {
     const item = queue.value[index.value]
@@ -89,7 +87,6 @@ export const useSessionStore = defineStore('session', () => {
     answers.value = []
     plannedTotal.value = queue.value.length
     scopeLabel.value = options.label ?? ''
-    comboBeforeBreak = 0
     finished.value = queue.value.length === 0
   }
 
@@ -118,7 +115,6 @@ export const useSessionStore = defineStore('session', () => {
     answers.value = draft.answers.filter((answer) => phraseById.has(answer.phraseId))
     plannedTotal.value = Math.max(draft.plannedTotal, index.value + 1)
     scopeLabel.value = draft.scopeLabel
-    comboBeforeBreak = 0
     return true
   }
 
@@ -131,24 +127,18 @@ export const useSessionStore = defineStore('session', () => {
       combo.value++
       bestCombo.value = Math.max(bestCombo.value, combo.value)
     } else {
-      comboBeforeBreak = combo.value
       combo.value = 0
     }
   }
 
-  /** 用户手动纠正上一次判定：同步本轮答案、正确率并按纠错前的连对续上 */
-  function amend(): void {
+  /**
+   * 用户声明「这条我会了」：只撤回队尾那次重练，
+   * 答案、正确率与连对保持原样（答错了就是答错了）。
+   */
+  function dropRepeat(): void {
     const item = queue.value[index.value]
     if (!item) return
-    const last = answers.value[answers.value.length - 1]
-    if (!last || last.correct || last.phraseId !== item.phraseId) return
 
-    answers.value = [...answers.value.slice(0, -1), { phraseId: last.phraseId, correct: true }]
-    correctCount.value++
-    combo.value = comboBeforeBreak + 1
-    bestCombo.value = Math.max(bestCombo.value, combo.value)
-
-    // 撤回答错时追加到队尾的那次重练
     const tail = queue.value.length - 1
     if (tail > index.value && queue.value[tail].phraseId === item.phraseId) {
       queue.value = queue.value.slice(0, tail)
@@ -169,7 +159,6 @@ export const useSessionStore = defineStore('session', () => {
   }
 
   function skip(): void {
-    comboBeforeBreak = combo.value
     combo.value = 0
     advanceIndex()
   }
@@ -192,7 +181,6 @@ export const useSessionStore = defineStore('session', () => {
     answers.value = []
     plannedTotal.value = 0
     scopeLabel.value = ''
-    comboBeforeBreak = 0
     finished.value = false
     clearSessionDraft()
   }
@@ -221,7 +209,7 @@ export const useSessionStore = defineStore('session', () => {
     startWith,
     restore,
     record,
-    amend,
+    dropRepeat,
     noteHint,
     next,
     skip,

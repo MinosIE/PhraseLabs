@@ -21,12 +21,13 @@ const props = defineProps<{
   goalReached: boolean
   speaking?: boolean
   canSpeak?: boolean
+  mastered?: boolean
 }>()
 
 const emit = defineEmits<{
   next: []
   speak: []
-  'mark-correct': []
+  'mark-mastered': []
 }>()
 
 const root = ref<HTMLElement | null>(null)
@@ -169,13 +170,14 @@ onUnmounted(() => ctx?.revert())
     <div class="feedback-actions">
       <button class="btn btn-primary" type="button" @click="emit('next')">下一题 ↵</button>
       <button
-        v-if="tone !== 'correct'"
+        v-if="tone !== 'correct' && !mastered"
         class="btn"
         type="button"
-        @click="emit('mark-correct')"
+        @click="emit('mark-mastered')"
       >
-        我其实答对了
+        这条我会了
       </button>
+      <span v-else-if="mastered" class="muted small">已标记为掌握，不计入正确率</span>
     </div>
   </div>
 </template>

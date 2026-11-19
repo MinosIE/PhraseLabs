@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
 import type { DayStats, PhraseProgress } from '@/types/progress'
 import { dayKey } from '@/lib/date'
-import { applyReview } from '@/lib/srs'
+import { applyReview, masterProgress } from '@/lib/srs'
 import { loadProgress, loadStats, saveProgress, saveStats } from '@/lib/storage'
 
 export const useProgressStore = defineStore('progress', () => {
@@ -31,16 +31,11 @@ export const useProgressStore = defineStore('progress', () => {
     }
   }
 
-  function markCorrect(phraseId: string): void {
+  /** 用户声明这条短语已掌握：只调整记忆盒子与排期，不动当日统计与对错计数 */
+  function markMastered(phraseId: string): void {
     progress.value = {
       ...progress.value,
-      [phraseId]: applyReview(progress.value[phraseId], true),
-    }
-    const key = dayKey()
-    const previous = stats.value[key] ?? { reviewed: 0, correct: 0, learned: 0 }
-    stats.value = {
-      ...stats.value,
-      [key]: { ...previous, correct: previous.correct + 1 },
+      [phraseId]: masterProgress(progress.value[phraseId]),
     }
   }
 
@@ -54,5 +49,5 @@ export const useProgressStore = defineStore('progress', () => {
     stats.value = {}
   }
 
-  return { progress, stats, recordAnswer, markCorrect, replace, reset }
+  return { progress, stats, recordAnswer, markMastered, replace, reset }
 })

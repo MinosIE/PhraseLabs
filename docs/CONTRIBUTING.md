@@ -7,20 +7,20 @@
 1. 在 `src/data/phrases/` 找到对应分类的文件；新分类需先在 `types/phrase.ts`、`data/categories.ts` 登记。
 2. 按现有格式追加对象，`id` 使用 `<分类>-<三位序号>`，且全库唯一。
 3. 字段要求：
-   - `en`：完整短语，小写，不带头尾空格；
+   - `en`：完整短语，小写，不带头尾空格；叠词习语可只用连字符（如 `fifty-fifty`），其余必须是含空格的短语；
    - `zh`：中文释义，多个义项用 `；` 分隔；
    - `aliases`：至少 2 个、每个至少 2 个汉字的常见说法，用于键盘输入判定；
-   - `enAliases`：可选，记录常见时态/拼写变体；
+   - `enAliases`：可选，记录常见时态/拼写变体；含 `one’s` / `someone` 的短语必须在这里补上例句里的实际形式，否则填空模式挖不出空；
    - `level`：1–5，按使用频率和难度评估；
-   - `exampleEn` / `exampleZh`：自然、可直接使用的双语例句，英文例句中应包含该短语；
+   - `exampleEn` / `exampleZh`：自然、可直接使用的双语例句，英文例句中应包含该短语或它的 `enAliases` 形式；
    - `tip`：可选，写易错点或介词搭配说明。
 
 示例：
 
 ```ts
-{ id: 'daily-011', en: 'on the same boat', zh: '处境相同', aliases: ['处境相同', '同一条船'],
-  category: 'daily', tags: ['口语'], level: 3,
-  exampleEn: 'We are all in the same boat.', exampleZh: '我们处境相同。' },
+{ id: 'daily-042', en: 'in the same boat', zh: '处境相同；同病相怜', aliases: ['处境相同', '同病相怜', '同舟共济'],
+  category: 'daily', tags: ['口语', '习语'], level: 3,
+  exampleEn: 'We’re all in the same boat, so let’s help each other.', exampleZh: '我们处境相同，所以互相帮忙吧。' },
 ```
 
 ## 提交前检查
@@ -36,7 +36,7 @@ pnpm build
 
 - [ ] `id` 唯一，序号未与现有条目冲突
 - [ ] `aliases` 覆盖常见中文说法，且每个关键词不少于 2 字
-- [ ] 英文例句自然并包含该短语
+- [ ] 英文例句自然并包含该短语（或 `enAliases` 里的变体），填空模式能挖出空
 - [ ] 中文释义与例句语义一致
 - [ ] 没有重复收录已有短语（同形不同义的词请成对放进 `polysemy.ts`，用释义和例句区分语境）
 

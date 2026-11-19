@@ -27,6 +27,25 @@ export function applyReview(
   }
 }
 
+/**
+ * 用户声明「这条我会了」：只把盒子提到已掌握并推后排期，
+ * 不改正确/错误计数——答错了就是答错了，只是不必再练。
+ */
+export function masterProgress(
+  progress: PhraseProgress | undefined,
+  now: number = Date.now(),
+): PhraseProgress {
+  const current = progress ?? createProgress(now)
+  const box = Math.max(current.box, 4)
+
+  return {
+    ...current,
+    box,
+    lastReviewed: now,
+    nextReview: addDays(now, INTERVALS[box - 1] ?? 1),
+  }
+}
+
 export function isDue(progress: PhraseProgress | undefined, now: number = Date.now()): boolean {
   return !progress || progress.nextReview <= now
 }

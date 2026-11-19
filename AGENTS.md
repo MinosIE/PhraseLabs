@@ -40,7 +40,7 @@ src/
     SelectField.vue      自定义下拉（listbox + 键盘导航）
   composables/useDebounce.ts  搜索框防抖
   stores/
-    session.ts           本轮队列/索引/连对/逐题对错；当天草稿恢复；手动纠错同步
+    session.ts           本轮队列/索引/连对/逐题对错；草稿恢复；撤回重练
     progress.ts          短语记忆状态 + 每日统计，deep watch 落盘
     settings.ts          用户设置，deep watch 落盘
   lib/                   纯函数
@@ -98,14 +98,14 @@ src/
      → StudyView.submit：submitting=true → 150ms 后 gradeAnswer(...)
      → progressStore.recordAnswer → applyReview + 当日统计(deep watch 落盘)
      → sessionStore.record + 答错 requeueCurrent → revealed=true → 弹框
-纠错 → 「我其实答对了」→ progressStore.markCorrect + sessionStore.amend(同步答案/正确率/连对、撤回重练)
+「我会了」→ progressStore.markMastered(srs.masterProgress 抬盒到 4) + sessionStore.dropRepeat(只撤重练)；答案/正确率/连对/当日统计均不改
 下一题 → sessionStore.next → 清空 inputKey 重建输入框（草稿随 watch 自动写回 sessionStorage）
 导入 → SettingsView.onImport(确认覆盖 → importing=true) → importData → normalizeSettings → replace 三个 store
 ```
 
 ### 1.6 关键设计原则（逐条可验证）
 
-1. **短语定位**：`en` 必须是含空格的完整短语；禁止孤立单词、禁止跟写/听写题型。
+1. **短语定位**：`en` 必须是完整短语（含空格；叠词习语可用连字符，如 `so-so`、`fifty-fifty`）；禁止孤立单词、禁止跟写/听写题型。
 2. **输入不干预**：单一输入框，输入期间不实时判定、不上色、不自动跳格、不拦截普通输入；仅提交后给结果。
 3. **纯函数边界**：`lib/` 不 import Vue；判定/队列/记忆可在 Node 下单测。
 4. **持久化**统一走 `lib/storage.ts`，键前缀 `phraselabs:v1:`；写入失败静默降级内存态。
@@ -150,7 +150,7 @@ Vue SFC 统一 `<script setup lang="ts">` → `<template>` →（无 `<style sco
 
 ### 2.8 测试要求
 
-Vitest，唯一测试文件 `src/lib/__tests__/core.test.ts`，当前 26 项。覆盖判定、队列（含临时范围与指定集合）、Leitner、归一化、存储迁移、本轮草稿跨天失效、数据结构不变量。**提交前必跑** `pnpm test && pnpm typecheck && pnpm build`；CI（`.github/workflows/deploy.yml`）先测后构建，任一失败不部署。
+Vitest，唯一测试文件 `src/lib/__tests__/core.test.ts`，当前 27 项。覆盖判定、队列（含临时范围与指定集合）、Leitner、归一化、存储迁移、本轮草稿跨天失效、数据结构不变量。**提交前必跑** `pnpm test && pnpm typecheck && pnpm build`；CI（`.github/workflows/deploy.yml`）先测后构建，任一失败不部署。
 
 ## 3. AI Agent 开发指导 ★最高优先级★
 
@@ -194,16 +194,17 @@ Vitest，唯一测试文件 `src/lib/__tests__/core.test.ts`，当前 26 项。�
 | 没有英文音色的设备留下死按钮 | 只判断 API 是否存在，没判断有没有英文音色 | `hasEnglishVoice` + `settings.voiceAvailable` 统一控制四处入口；首次为空时挂 `voiceschanged` 自动恢复 |
 | 中→英答题前能听出答案 | 卡片头的朗读按钮在所有题型都显示 | 答题前仅 `en-zh` 提供朗读，弹框打开后不限；`⌥R`/`Ctrl+P` 同样走 `canSpeakNow` 判断 |
 | 老用户设置里出现空标签/错误题型 | 移除 `shadow`/`dictation` 后 localStorage 仍存旧值 | 在 `normalizeSettings` 迁移并在测试中覆盖 |
-| 词库出现孤立单词 | 一词多义分类曾直接写 `book`/`can` 等 | 一律改成含空格短语对，如 `book a table` / `read a book` |
+| 词库出现孤立单词 | 一词多义分类曾直接写 `book`/`can` 等 | 一律改成含空格短语对，如 `book a table` / `read a book`；叠词习语是唯一例外，写成带连字符的 `so-so`、`fifty-fifty`，判定时 `normalizeEnglish` 会把连字符归一化为空格 |
 | 中文判定漏词 | `aliases` 含单字（如 `迷`），`normalizeChinese` 后长度 < 2 被过滤 | 别名至少 2 个汉字；提交前跑别名长度扫描 |
 | TS6133 未使用变量 | `noUnusedLocals: true`；重构弹框后遗留 `goalText` | 删除未使用声明，`pnpm typecheck` 必跑 |
-| 填空判定失败 | 例句里未包含 `en` 短语，`clozeSentence` 无占位可替换 | 写例句时确保 `exampleEn` 包含该短语 |
-| 重复条目/ID | 批量追加短语时序号冲突 | 追加前后用脚本查重 `id` 与 `en` |
+| 填空不挖空（泄题） | `exampleEn` 只写了时态变形，`clozePattern` 匹配不到 `en`；含 `one’s`/`someone` 的短语本就不可能原样出现 | 例句尽量用 `can/will/seems to` 等保留原形；确实只能写变形的，把实际形式加进 `enAliases`（如 `lost his temper`、`cover for me`），提交前跑一次挖空自检 |
+| 重复条目/ID | 同一短语被写进多个语义相近的分类（如 `call it a day` 同时在职场/习语/旅行），或批量追加时序号冲突。曾出现 629 条里只有 602 个唯一 `en` | 新增后立即用脚本查 `id` 与 `en` 全局唯一；同一短语只留在最贴切的分类 |
 | 空答案被判错 | 提交未校验 `trim`，空串进入判定会降盒、计入错误并 requeue | 在 `AnswerInput` 与 `StudyView.submit` 双层拦空答案，只抖动提示 |
 | 判定中点「跳过」吞掉作答 | `skip()` 把 `submitting` 置 false，150ms 回调直接 return，但索引已前进 | `skip()` 在判定中直接 return，跳过按钮同步 `disabled` |
 | 进度条随重练倒退 | 分母用 `queue.length`，答错追加后总数变大 | 分母固定为 `plannedTotal`，重练单独显示 `pendingRepeats` |
 | 首页点分类后长期设置被改 | 直接写 `settings.categories` | 用 `session.start({ categories, label })`，只影响本轮 |
 | 反色卡片辅助文字看不清 | 把为浅底定义的 `--muted` / `--accent` 复用到 `--ink` 反色底，实测仅 2.43–3.75:1 | 用 `--on-ink-muted` / `--on-ink-accent` 双主题 token；进度条填充同理 |
+| 「改判答对」留下两套账 | 翻案同时改本轮正确率与 SRS：答错降 2 级、答对只升 1 级，box 回不到原值，`wrong` 还永久 +1 | 判定不可推翻；只提供「这条我会了」抬高盒子 + 撤回重练，统计学口径保持不变 |
 
 ### 3.5 推荐开发流程
 
@@ -229,7 +230,7 @@ Vitest，唯一测试文件 `src/lib/__tests__/core.test.ts`，当前 26 项。�
 | 文档 | 路径 | 用途 | 重要度 | 何时查看 |
 | --- | --- | --- | --- | --- |
 | 产品与内容设计 | `docs/PRODUCT.md` | 交互规则、判定/记忆算法、内容体系 | 🔴必读 | 改判定/内容/交互前 |
-| 架构与数据契约 | `docs/ARCHITECTURE.md` | 分层、接口、localStorage、部署 | 🔴必读 | 改结构/契约前（注意 §5.4 过时项） |
+| 架构与数据契约 | `docs/ARCHITECTURE.md` | 分层、接口、localStorage、部署 | 🔴必读 | 改结构/契约前 |
 | 贡献指南 | `docs/CONTRIBUTING.md` | 短语字段规范、PR 检查 | 🟡常用 | 增改短语数据时 |
 | README | `README.md` | 功能概览与启动方式 | 🟢参考 | 对外说明时 |
 | CI 部署 | `.github/workflows/deploy.yml` | 测试门禁与 Pages 发布 | 🟡常用 | 改构建/发布时 |
@@ -241,7 +242,7 @@ Vitest，唯一测试文件 `src/lib/__tests__/core.test.ts`，当前 26 项。�
 
 ### 5.1 已完成模块
 
-五种模式中的三种具体题型 + 混合、Leitner 复习、统计页、词库筛选、导入导出、主题、严格度、收藏、音色按设备能力显隐的手动朗读、加载态、自定义下拉、判定弹框与逐题对错、11 类 629 条短语；词库分批渲染与「练这 N 条」、统计页「最该复习的 5 条」、本轮草稿刷新恢复、弹框内朗读与背景 `inert`；UI 动效与配色已按 ui-studio 做有界精修与对比度验证（见 `QA.md`）。
+五种模式中的三种具体题型 + 混合、Leitner 复习、统计页、词库筛选、导入导出、主题、严格度、收藏、音色按设备能力显隐的手动朗读、加载态、自定义下拉、判定弹框与逐题对错、11 类 703 条短语（已完成跨分类去重，全库 `en` 唯一；补齐过高频口语/习语/短语动词，后又新增 26 条影视高频台词、14 条电影常见习语、24 条叠词习语；全部 `exampleEn` 均含可挖空形式）；词库分批渲染与「练这 N 条」、统计页「最该复习的 5 条」、本轮草稿刷新恢复、弹框内朗读与背景 `inert`；UI 动效与配色已按 ui-studio 做有界精修与对比度验证（见 `QA.md`）。
 
 ### 5.2 开发中的模块
 
@@ -257,16 +258,21 @@ Vitest，唯一测试文件 `src/lib/__tests__/core.test.ts`，当前 26 项。�
 
 ### 5.5 已知问题
 
-- 中文同义词依赖人工维护的 `aliases`，未收录表达会误判；用「我其实答对了」兜底。
+- 中文同义词依赖人工维护的 `aliases`，未收录表达会误判；用户可用「这条我会了」标为已掌握并跳过重练，但判定与统计不会被改写。
+- 填空挖空依赖例句与原形匹配：`StudyView.clozeSentence()` 依次尝试 `en` 与 `enAliases`，并把短语里的 `…` 当作可插入内容（`clozePattern` 转成 `.{0,60}?`）。含 `one’s` / `someone` / `something` / `your` 的短语无法在例句中原样出现，必须用 `enAliases` 记录例句里的实际形式（如 `lost his temper`、`cover for me`）；新增条目若例句只写变形而未补 `enAliases`，填空模式仍会显示完整句子。存量 192 条已于 2026-11-19 全部修正，当前全库 0 条无法挖空。
 - Web Speech API 音色与可用性由浏览器/系统决定；朗读仅辅助，不影响判定。
 - localStorage 容量有限，当前只存进度/统计/设置，足够长期使用。
 
 ### 5.6 后续规划 / 路线图
 
-见 `docs/PRODUCT.md`「路线」：P0–P2 已完成，P3 待做。架构/接口/约定变更时同步更新本文件，否则指南会快速腐化。
+见 `docs/PRODUCT.md`「路线」：P0–P2 已完成，P3 进行中（当前 703 条，内容继续扩充）。架构/接口/约定变更时同步更新本文件，否则指南会快速腐化。
 
 ## 6. 变更记录（本文件）
 
 - 2026-11-19：新建。基于实际源码、配置、CI 与文档取证，压缩为面向 Agent 的操作手册与索引；记录已移除的跟写/听写题型及真实踩坑清单。
 - 2026-11-19：交互评审后的调整：空答案不判定、判定中禁跳、弹框内朗读与背景 `inert`、手动纠错同步本轮、重练不再改变进度分母、本轮草稿刷新可恢复、首页分类只影响本轮、词库分批渲染与一键开练、统计薄弱清单；测试 22 → 26 项。
+- 2026-11-19：语料治理。清理 26 组跨分类重复短语（629 → 602，每组保留最贴合分类的一条，删除的 ID 变成孤儿进度但无害）；新增 41 条高频表达（日常 14、习语 18、短语动词 9），其中 `have a point`、`out of the blue`、`long time no see` 与存量重复已剔除，最终 640 条、11 类、`id`/`en` 全唯一。全文总数与分类数已同步 README / PRODUCT / ARCHITECTURE / 本文件。
 - 2026-11-19：完成首次提交 `332a49f`；随后按 ui-studio 精修动效/交互与配色（21 组对比度全部达标，细节见 `QA.md`），提交 `b2e5632`。本文件同步提交状态、文档索引、配色联动与反色卡片踩坑。
+- 2026-11-19：朗读入口改为按设备能力显隐、答题前仅「英 → 中」可读；「我其实答对了」改为「这条我会了」，判定与统计不再被改写，测试 26 → 27 项。
+- 2026-11-19：修复填空泄题。`StudyView.clozeSentence` 改为按 `[en, ...enAliases]` 依次匹配，并把 `…` 当作通配；逐条改写 192 条例句（多改为 `can/will/seems to/deserves to` 等保留原形的句式），含 `one’s`/`someone`/`something`/`your` 的条目补 `enAliases` 记录例句实际形式。自检脚本结果：0 条无法挖空、0 重复 `id`/`en`；顺带删除与 `daily-042` 重复的 `work-024`（原 `on the same boat` 拼写不规范），总数 640 → 639，职场 47 → 46，文档数字已同步。
+- 2026-11-19：补充影视与叠词。日常新增 26 条影视/美剧高频台词（`daily-128`–`daily-153`），习语新增 14 条电影常见习语（`idioms-068`–`idioms-081`）与 24 条叠词习语（`idioms-082`–`idioms-105`，含 `so-so`、`fifty-fifty`、`chit-chat`、`now now`、`there there`）；总数 639 → 703，日常 148、习语 104。叠词允许只用连字符，`core.test.ts` 的「非孤立单词」断言由「必须含空格」放宽为「含空格或连字符」，文档同步。

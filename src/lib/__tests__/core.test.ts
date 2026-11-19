@@ -10,7 +10,14 @@ import {
 import { dayKey } from '@/lib/date'
 import { gradeAnswer } from '@/lib/grade'
 import { levenshtein, normalizeChinese, normalizeEnglish } from '@/lib/normalize'
-import { computeStreak, applyReview, createProgress, isDue, isMastered } from '@/lib/srs'
+import {
+  computeStreak,
+  applyReview,
+  createProgress,
+  isDue,
+  isMastered,
+  masterProgress,
+} from '@/lib/srs'
 import { buildQueue } from '@/lib/session'
 import {
   exportData,
@@ -111,6 +118,21 @@ describe('srs', () => {
     expect(isMastered(progress)).toBe(true)
   })
 
+  it('「我会了」只抬高盒子并推后排期，不改对错计数', () => {
+    const now = new Date(2026, 0, 10, 12).getTime()
+    const wrong = applyReview(applyReview(undefined, true, now), false, now)
+    expect(wrong.box).toBe(0)
+    expect(wrong.wrong).toBe(1)
+
+    const mastered = masterProgress(wrong, now)
+    expect(mastered.box).toBe(4)
+    expect(isMastered(mastered)).toBe(true)
+    expect(mastered.nextReview).toBeGreaterThan(now)
+    // 答错了就是答错了：错误次数与正确次数都不被改写
+    expect(mastered.wrong).toBe(wrong.wrong)
+    expect(mastered.correct).toBe(wrong.correct)
+  })
+
   it('从今天或昨天开始计算连续天数', () => {
     const now = new Date(2026, 0, 10, 12).getTime()
     const stats: DayStats = {
@@ -196,7 +218,7 @@ describe('session', () => {
     expect(settings.categories).toEqual([])
   })
 
-  it('手动纠错会同步本轮答案、正确率并撤回重练', () => {
+  it('标记「我会了」只撤回重练，不改答案与正确率', () => {
     setActivePinia(createPinia())
     const session = useSessionStore()
     session.start()
@@ -208,17 +230,17 @@ describe('session', () => {
     expect(session.accuracy).toBe(50)
     expect(session.pendingRepeats).toBe(1)
 
-    session.amend()
-    expect(session.answers.map((answer) => answer.correct)).toEqual([true, true])
-    expect(session.accuracy).toBe(100)
-    // 连对按「打断前的连对数 + 本题」续上
-    expect(session.combo).toBe(2)
+    session.dropRepeat()
+    // 答错了就是答错了：答案、正确率、连对都保持原样
+    expect(session.answers.map((answer) => answer.correct)).toEqual([true, false])
+    expect(session.accuracy).toBe(50)
+    expect(session.combo).toBe(0)
     expect(session.total).toBe(totalWithRepeat - 1)
     expect(session.pendingRepeats).toBe(0)
 
-    // 重复纠错不会重复加分
-    session.amend()
-    expect(session.accuracy).toBe(100)
+    // 重复调用不会再改变队列
+    session.dropRepeat()
+    expect(session.total).toBe(totalWithRepeat - 1)
   })
 })
 
@@ -274,6 +296,26 @@ describe('内容数据', () => {
   it('覆盖 11 个分类、至少 500 条短语', () => {
     expect(new Set(phrases.map((phrase) => phrase.category)).size).toBe(11)
     expect(phrases.length).toBeGreaterThanOrEqual(500)
+  })
+
+  it('英文短语唯一且不是孤立单词（含空格或叠词连字符）', () => {
+    const forms = phrases.map((phrase) => phrase.en.toLowerCase())
+    expect(new Set(forms).size).toBe(forms.length)
+    for (const phrase of phrases) {
+      expect(phrase.en).toMatch(/[ -]/)
+    }
+  })
+
+  it('每条例句都能挖空（含 en 或 enAliases，省略号按通配处理）', () => {
+    const toPattern = (text: string) => {
+      const escaped = text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      return new RegExp(escaped.replace(/…/g, '.{0,60}?'), 'i')
+    }
+    const broken = phrases.filter((phrase) => {
+      const forms = [phrase.en, ...(phrase.enAliases ?? [])]
+      return !forms.some((form) => toPattern(form).test(phrase.exampleEn))
+    })
+    expect(broken.map((phrase) => phrase.id)).toEqual([])
   })
 })
 
