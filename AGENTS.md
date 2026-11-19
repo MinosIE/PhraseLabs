@@ -1,6 +1,6 @@
 # AGENTS.md
 
-> 面向 AI Agent 的项目开发指南。最后更新：2026-11-19 · 适用：当前 `main` 分支（尚无提交）。
+> 面向 AI Agent 的项目开发指南。最后更新：2026-11-19 · 适用：当前 `main` 分支（已有提交，未 push）。
 > 维护约定：改动架构 / 接口 / 约定 / 内容规模后，必须同步更新本文件对应小节与 `docs/`。
 > 本文件不含框架托管区块；若未来出现 `<!-- BEGIN:xxx -->` 成对标记，原样保留，勿删。
 
@@ -182,7 +182,7 @@ Vitest，唯一测试文件 `src/lib/__tests__/core.test.ts`，当前 26 项。�
 | 改判定规则 | `lib/grade.ts` / `lib/normalize.ts` → `core.test.ts` → `docs/PRODUCT.md` | 测试仍按旧规则，用户与文档预期不一致 |
 | 改路由/导航 | `router/index.ts` → `App.vue` nav → 路由 `meta.title` | 导航项与可访问路由不一致 |
 | 改朗读 | `lib/speech.ts` → `stores/settings.ts` `voiceAvailable` → `SettingsView.vue` 音色下拉 → `StudyView.vue`（答题前仅 `en-zh` 可读）/ `AnswerFeedback.vue` / `LibraryView.vue` 朗读按钮与 `⌥R`、`Ctrl+P` | loading 卡住、没音色仍显示按钮、答题前朗读泄题 |
-| 改主题/布局 | `style.css` 语义变量 → 必要时 `App.vue` `applyTheme` | 深浅主题不一致 |
+| 改主题/布局/配色 token | `style.css` 语义变量 → 必要时 `App.vue` `applyTheme` → `QA.md` 记录对比度实测 | 深浅主题不一致、反色卡片文字不达标 |
 
 ### 3.4 常见错误模式（真实踩坑）
 
@@ -203,13 +203,14 @@ Vitest，唯一测试文件 `src/lib/__tests__/core.test.ts`，当前 26 项。�
 | 判定中点「跳过」吞掉作答 | `skip()` 把 `submitting` 置 false，150ms 回调直接 return，但索引已前进 | `skip()` 在判定中直接 return，跳过按钮同步 `disabled` |
 | 进度条随重练倒退 | 分母用 `queue.length`，答错追加后总数变大 | 分母固定为 `plannedTotal`，重练单独显示 `pendingRepeats` |
 | 首页点分类后长期设置被改 | 直接写 `settings.categories` | 用 `session.start({ categories, label })`，只影响本轮 |
+| 反色卡片辅助文字看不清 | 把为浅底定义的 `--muted` / `--accent` 复用到 `--ink` 反色底，实测仅 2.43–3.75:1 | 用 `--on-ink-muted` / `--on-ink-accent` 双主题 token；进度条填充同理 |
 
 ### 3.5 推荐开发流程
 
 1. 改前：确认契约与联动表 → 跑 `pnpm test` 建立基线。
 2. 改中：按依赖顺序改（类型 → lib → store → view → data → docs）。
 3. 改后：`pnpm test && pnpm typecheck && pnpm build`；内容类改动额外查重 ID/en、别名长度、单词条目。
-4. 提交：说明改动范围与同步更新的文档；当前仓库尚无提交，首次提交需完整纳入全部源码。
+4. 提交：说明改动范围与同步更新的文档；确认本文件、`docs/`、`QA.md` 已同步，工作区无意外文件。
 
 ### 3.6 Debug 排查顺序
 
@@ -232,18 +233,19 @@ Vitest，唯一测试文件 `src/lib/__tests__/core.test.ts`，当前 26 项。�
 | 贡献指南 | `docs/CONTRIBUTING.md` | 短语字段规范、PR 检查 | 🟡常用 | 增改短语数据时 |
 | README | `README.md` | 功能概览与启动方式 | 🟢参考 | 对外说明时 |
 | CI 部署 | `.github/workflows/deploy.yml` | 测试门禁与 Pages 发布 | 🟡常用 | 改构建/发布时 |
+| UI 验证记录 | `QA.md` | ui-studio 动效/配色审查、对比度实测与误报判定 | 🟡常用 | 改动效/配色/交互前 |
 
-快捷路由：架构问题 → `docs/ARCHITECTURE.md`；数据模型 → `src/types/` + `docs/ARCHITECTURE.md`；业务规则 → `docs/PRODUCT.md`；部署环境 → `vite.config.ts` + deploy workflow；内容贡献 → `docs/CONTRIBUTING.md`。
+快捷路由：架构问题 → `docs/ARCHITECTURE.md`；数据模型 → `src/types/` + `docs/ARCHITECTURE.md`；业务规则 → `docs/PRODUCT.md`；动效/配色 → `QA.md` + `src/style.css`；部署环境 → `vite.config.ts` + deploy workflow；内容贡献 → `docs/CONTRIBUTING.md`。
 
 ## 5. 当前项目状态
 
 ### 5.1 已完成模块
 
-五种模式中的三种具体题型 + 混合、Leitner 复习、统计页、词库筛选、导入导出、主题、严格度、收藏、音色按设备能力显隐的手动朗读、加载态、自定义下拉、判定弹框与逐题对错、11 类 629 条短语；词库分批渲染与「练这 N 条」、统计页「最该复习的 5 条」、本轮草稿刷新恢复、弹框内朗读与背景 `inert`。
+五种模式中的三种具体题型 + 混合、Leitner 复习、统计页、词库筛选、导入导出、主题、严格度、收藏、音色按设备能力显隐的手动朗读、加载态、自定义下拉、判定弹框与逐题对错、11 类 629 条短语；词库分批渲染与「练这 N 条」、统计页「最该复习的 5 条」、本轮草稿刷新恢复、弹框内朗读与背景 `inert`；UI 动效与配色已按 ui-studio 做有界精修与对比度验证（见 `QA.md`）。
 
 ### 5.2 开发中的模块
 
-无进行中的功能分支（git 尚无任何提交，工作区文件均为未跟踪状态）。
+无进行中的功能分支。`main` 已有两个提交：`332a49f` 初始化站点、`b2e5632` UI 动效/交互/配色精修；工作区干净，未 push。
 
 ### 5.3 未完成计划
 
@@ -267,3 +269,4 @@ Vitest，唯一测试文件 `src/lib/__tests__/core.test.ts`，当前 26 项。�
 
 - 2026-11-19：新建。基于实际源码、配置、CI 与文档取证，压缩为面向 Agent 的操作手册与索引；记录已移除的跟写/听写题型及真实踩坑清单。
 - 2026-11-19：交互评审后的调整：空答案不判定、判定中禁跳、弹框内朗读与背景 `inert`、手动纠错同步本轮、重练不再改变进度分母、本轮草稿刷新可恢复、首页分类只影响本轮、词库分批渲染与一键开练、统计薄弱清单；测试 22 → 26 项。
+- 2026-11-19：完成首次提交 `332a49f`；随后按 ui-studio 精修动效/交互与配色（21 组对比度全部达标，细节见 `QA.md`），提交 `b2e5632`。本文件同步提交状态、文档索引、配色联动与反色卡片踩坑。
