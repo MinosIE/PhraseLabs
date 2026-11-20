@@ -47,17 +47,24 @@ const weekDeltaText = computed(() =>
   lastWeek.value === 0 ? '—' : `${weekDelta.value >= 0 ? '+' : ''}${weekDelta.value}%`,
 )
 
-/** 盒子最低、错得最多的短语：比再加一张图表更能指导下一步 */
+/** 稳定度最低、错得最多的短语：比再加一张图表更能指导下一步 */
 const focusList = computed(() =>
   phrases
     .filter((phrase) => progressStore.progress[phrase.id])
     .sort((a, b) => {
       const pa = progressStore.progress[a.id]!
       const pb = progressStore.progress[b.id]!
-      return pa.box - pb.box || pb.wrong - pa.wrong
+      return pa.stability - pb.stability || pb.wrong - pa.wrong
     })
     .slice(0, 5),
 )
+
+/** 稳定度按天展示：一天以内保留一位小数，长间隔只给整数 */
+function stabilityText(id: string): string {
+  const value = progressStore.progress[id]?.stability ?? 0
+  if (!value) return '未练'
+  return value >= 10 ? `${Math.round(value)} 天` : `${Math.round(value * 10) / 10} 天`
+}
 
 function practiceFocus(): void {
   if (!focusList.value.length) return
@@ -148,7 +155,7 @@ const categoryStats = computed(() =>
             <div class="phrase-zh">{{ phrase.zh }}</div>
           </div>
           <div class="focus-meta">
-            <span class="badge">熟练度 {{ progressStore.progress[phrase.id]?.box ?? 0 }} / 5</span>
+            <span class="badge">记忆稳定 {{ stabilityText(phrase.id) }}</span>
             <span v-if="progressStore.progress[phrase.id]?.wrong" class="badge due">
               错 {{ progressStore.progress[phrase.id]?.wrong }} 次
             </span>

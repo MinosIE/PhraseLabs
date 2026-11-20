@@ -34,7 +34,7 @@ interface Phrase {
 }
 
 interface PhraseProgress {
-  box: number             // 0-5
+  stability: number      // 记忆稳定度（天）：到期时保留率降到 90%
   correct: number
   wrong: number
   lastReviewed: number    // 毫秒时间戳
@@ -72,7 +72,7 @@ interface AppData {        // 导出/导入格式
 | `phraselabs:v1:stats` | 按 `YYYY-MM-DD`（本地时区）的每日统计 |
 | `phraselabs:v1:best-combo` | 历史最高连对 `{ combo, day }`，只增不减 |
 
-写入由 store 的 `watch(..., { deep: true })` 自动触发；读取失败会回退默认值，写入失败（隐私模式/容量不足）静默降级为内存态。未来升级不兼容格式时，提升前缀版本号并增加迁移函数。
+写入由 store 的 `watch(..., { deep: true })` 自动触发；读取失败会回退默认值，写入失败（隐私模式/容量不足）静默降级为内存态。进度记录在读取与导入时统一过 `normalizeProgress`：缺 `stability` 的旧数据按 Leitner 盒子（1/1/2/4/7/15 天）换算，缺失或非数字字段归一。未来升级不兼容格式时，提升前缀版本号并增加迁移函数。
 
 本轮训练快照单独放 sessionStorage（同样前缀 `phraselabs:v1:session`）：只存当天有效的队列、当前位置、连对与逐题结果，刷新页面可继续，关掉标签页或跨天自动失效，不占长期容量。`session` store 创建时会尝试 `restore()`，失败则新建队列。
 
@@ -83,7 +83,7 @@ interface AppData {        // 导出/导入格式
 3. `progress` store 调用 `applyReview` 更新记忆状态，并把结果累加到当日统计。
 4. `session` store 记录本轮正确数、连对与最佳连对，用户确认后推进到下一题；答错或接近会把当前题追加到队尾重练，计划题数（`plannedTotal`）保持不变，因此进度条分母不增长。
 5. 页面展示答案、例句和用法提示；弹框内可直接朗读正确答案，提示按钮和 `⌥H` 调用 store 的 `noteHint` 记录使用次数，不影响判定。
-6. 「这条我会了」调用 `progress.markMastered()`（`srs.masterProgress` 把盒子提到 4 并推后排期）与 `session.dropRepeat()`（只撤回队尾重练）；答案、正确率、连对与当日统计一律不改。
+6. 「这条我会了」调用 `progress.markMastered()`（`srs.masterProgress` 把稳定度抬到 15 天并推后排期）与 `session.dropRepeat()`（只撤回队尾重练）；答案、正确率、连对与当日统计一律不改。
 7. 答完最后一题进入结算页：`session.record()` 每答对一题就把连对交给 `progress.noteCombo()`，结算前 `session.syncBestCombo()` 再补记一次（刷新恢复的已完成草稿也能写入历史记录）；`masteredGained` = 当前已掌握数 − `masteredAtStart`，`dueTomorrow` 用 `srs.countDueBefore(progress, 今天 23:59:59.999 + 1 天)` 计算，即明天结束前会到期的条数。
 8. 「再来一轮」调用 `session.start(session.lastOptions)` 沿用本轮临时范围；`lastOptions` 只存内存，刷新后回退到设置里的长期范围。
 

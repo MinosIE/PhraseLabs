@@ -14,7 +14,7 @@ const settingsStore = useSettingsStore()
 const theme = computed(() => settingsStore.settings.theme)
 
 const DESCRIPTIONS: Record<string, string> = {
-  home: `${phrases.length} 条英语短语、${categories.length} 个分类，中译英 / 英译中 / 例句填空即时判定，配 Leitner 复习，无需注册，进度只存在本机。`,
+  home: `${phrases.length} 条英语短语、${categories.length} 个分类，中译英 / 英译中 / 例句填空即时判定，按艾宾浩斯遗忘曲线安排复习，无需注册，进度只存在本机。`,
   library: `按分类、难度与掌握度筛选 ${phrases.length} 条英语短语，查看中英释义与双语例句，可直接把筛选结果变成一轮训练。`,
   study: '短语答题界面：键盘输入、即时判定，答错自动排到本轮队尾重练。',
   stats: '本机学习统计：连续天数、正确率、每周趋势与分类掌握度。',

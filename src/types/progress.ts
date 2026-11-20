@@ -1,8 +1,8 @@
 import type { CategoryId, ModeSetting, StudyMode } from './phrase'
 
 export interface PhraseProgress {
-  /** Leitner 盒子编号，0 = 新词，5 = 已掌握 */
-  box: number
+  /** 记忆稳定度（天）：复习后经过这么多天，回忆概率衰减到 90% */
+  stability: number
   correct: number
   wrong: number
   lastReviewed: number

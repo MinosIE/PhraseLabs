@@ -258,7 +258,7 @@ function submit(value: string): void {
     progressStore.recordAnswer(phrase.id, correct)
     sessionStore.record(correct)
     // TypeWords 式错词循环：答错/接近的题自动排到本轮末尾再练。
-    // 本轮只有 1 条时不追加——紧接着重刷同一条几乎不涨记忆，交给 Leitner 排期
+    // 本轮只有 1 条时不追加——紧接着重刷同一条几乎不涨记忆，交给遗忘曲线排期
     if (!correct && sessionStore.plannedTotal > 1) sessionStore.requeueCurrent()
     const after = progressStore.stats[dayKey()]?.reviewed ?? 0
     if (before < settingsStore.settings.dailyGoal && after >= settingsStore.settings.dailyGoal) {

@@ -55,7 +55,8 @@ const filtered = computed(() => {
   if (sort.value === 'mastery') {
     return result.sort(
       (a, b) =>
-        (progressStore.progress[b.id]?.box ?? 0) - (progressStore.progress[a.id]?.box ?? 0),
+        (progressStore.progress[b.id]?.stability ?? 0) -
+        (progressStore.progress[a.id]?.stability ?? 0),
     )
   }
   return result

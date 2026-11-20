@@ -8,7 +8,14 @@ import { pickDaily } from '@/lib/daily'
 import { dayKey } from '@/lib/date'
 import { shuffle } from '@/lib/session'
 import { speakEn } from '@/lib/speech'
-import { computeStreak, isMastered } from '@/lib/srs'
+import {
+  computeStreak,
+  DECAY,
+  GROWTH,
+  isMastered,
+  MASTERED_STABILITY,
+  TARGET_RETENTION,
+} from '@/lib/srs'
 import { useProgressStore } from '@/stores/progress'
 import { useSessionStore } from '@/stores/session'
 import { useSettingsStore } from '@/stores/settings'
@@ -29,6 +36,67 @@ const mastered = computed(
 const totalReviews = computed(() =>
   Object.values(progressStore.stats).reduce((sum, day) => sum + day.reviewed, 0),
 )
+
+/** 遗忘曲线示意图：每次复习把保留率拉回 100%，之后按 0.9^(天/稳定度) 衰减 */
+const memoryCurve = (() => {
+  const left = 20
+  const pxPerDay = 8
+  const top = 44
+  const bottom = 100
+  // 纵轴只标 100% / 90%：中间的刻度按幂次拉开，让衰减在 10% 的窄带里也能看出弧度
+  const yOf = (retention: number) => {
+    const normalized = (retention - TARGET_RETENTION) / (1 - TARGET_RETENTION)
+    return bottom - Math.pow(Math.min(Math.max(normalized, 0), 1), 0.55) * (bottom - top)
+  }
+  const intervals = [2, 4, 8, 16, 16]
+  const points: { x: number; y: number }[] = [{ x: left, y: top }]
+  const marks: { x: number; y: number }[] = []
+  let x = left
+
+  intervals.forEach((span, index) => {
+    for (let step = 1; step <= 12; step++) {
+      const day = (span * step) / 12
+      const retention = Math.pow(TARGET_RETENTION, day / span)
+      points.push({ x: x + day * pxPerDay, y: yOf(retention) })
+    }
+    x += span * pxPerDay
+    if (index < intervals.length - 1) {
+      // 复习是一次「拉满」：把跳变展开成 20px 宽的 S 形波浪，不做竖直尖刺
+      points.push({ x: x + 7, y: bottom - 14 })
+      points.push({ x: x + 14, y: top + 14 })
+      points.push({ x: x + 20, y: top })
+      marks.push({ x: x + 20, y: top })
+      x += 20
+    }
+  })
+
+  // Catmull-Rom 转三次贝塞尔：整条线连续光滑；控制点夹在 100%–90% 之间，避免过冲出界
+  const clampY = (value: number) => Math.min(Math.max(value, top), bottom)
+  let path = `M ${points[0].x.toFixed(1)} ${points[0].y.toFixed(1)}`
+  for (let i = 0; i < points.length - 1; i++) {
+    const p0 = points[i - 1] ?? points[i]
+    const p1 = points[i]
+    const p2 = points[i + 1]
+    const p3 = points[i + 2] ?? p2
+    const c1x = (p1.x + (p2.x - p0.x) / 6).toFixed(1)
+    const c1y = clampY(p1.y + (p2.y - p0.y) / 6).toFixed(1)
+    const c2x = (p2.x - (p3.x - p1.x) / 6).toFixed(1)
+    const c2y = clampY(p2.y - (p3.y - p1.y) / 6).toFixed(1)
+    path += ` C ${c1x} ${c1y}, ${c2x} ${c2y}, ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`
+  }
+
+  return {
+    path,
+    marks,
+    goalY: bottom,
+    endX: Number(x.toFixed(1)),
+    totalDays: intervals.reduce((sum, span) => sum + span, 0),
+  }
+})()
+
+const retentionPercent = `${Math.round(TARGET_RETENTION * 100)}%`
+const decayPercent = `×${Number(DECAY.toFixed(2))}`
+const growthText = `×${GROWTH.toFixed(1)}`
 const goalPercent = computed(() =>
   Math.min(100, Math.round((today.value.reviewed / settingsStore.settings.dailyGoal) * 100)),
 )
@@ -215,7 +283,7 @@ onUnmounted(() => {
           <h1 id="hero-heading" style="margin-top: 18px">看一眼，<span>敲出来</span>，<br />真正记住。</h1>
           <p class="hero-copy">
             一个免费的英语短语键盘训练站：看中文写英文、看英文写中文，或在真实例句里补全短语。
-            答错与接近的题当轮回炉，之后由记忆状态安排见面时间。无需注册，进度只留在这台设备上。
+            答错与接近的题当轮回炉，其余按艾宾浩斯遗忘曲线安排下次见面。无需注册，进度只留在这台设备上。
           </p>
           <div class="hero-actions">
             <button class="btn btn-primary btn-lg" type="button" @click="start()">
@@ -319,12 +387,12 @@ onUnmounted(() => {
         <div class="eyebrow">See it / 三步就记住</div>
         <h2 id="demo-heading">看提示，敲出来，<br />当场就知道对不对。</h2>
         <p class="hero-copy">
-          不用背规则，也不用猜判定。输入期间不打断你，提交后立刻给出正确答案、例句和下一次见面时间。
+          不用背规则，也不用猜判定。输入期间不打断你，提交后立刻给出正确答案、例句，以及按遗忘曲线算出的下次复习时间。
         </p>
         <div class="demo-points">
           <div><strong>01</strong><span>输入时不判定、不上色</span></div>
           <div><strong>02</strong><span>答错当轮排到队尾重练</span></div>
-          <div><strong>03</strong><span>6 格记忆盒安排下次复习</span></div>
+          <div><strong>03</strong><span>遗忘曲线管下次什么时候再见</span></div>
         </div>
         <div class="hero-actions">
           <button class="btn btn-primary btn-lg" type="button" @click="startQuick">
@@ -354,8 +422,8 @@ onUnmounted(() => {
           </div>
         </div>
         <div class="demo-stage-foot">
-          <span>记忆状态 · 第 3 格</span>
-          <span>下次见面 · 2 天后</span>
+          <span>记忆稳定 · 4 天</span>
+          <span>下次见面 · 4 天后</span>
         </div>
       </div>
     </section>
@@ -382,8 +450,78 @@ onUnmounted(() => {
         <article class="loop-step">
           <span class="loop-index">03</span>
           <h3>隔天再见一次</h3>
-          <p>答错当轮回炉，之后按 6 格记忆盒安排复习，越熟间隔越长。</p>
+          <p>答错当轮回炉；其余按艾宾浩斯式遗忘曲线排期，答得越稳、间隔拉得越长。</p>
         </article>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="memory-heading">
+      <div class="section-head reveal-item">
+        <div>
+          <div class="eyebrow">Memory model / 遗忘曲线</div>
+          <h2 id="memory-heading" style="margin-top: 8px">下次什么时候再见，是算出来的</h2>
+        </div>
+        <span class="small muted">不是固定的 1 / 2 / 4 / 7 天</span>
+      </div>
+      <div class="memory-grid">
+        <div class="card memory-card reveal-item">
+          <p class="memory-lead">
+            每条短语只记一个数字：<strong>记忆稳定度</strong>（天）。保留率按指数衰减，跌到
+            {{ retentionPercent }} 才回到队列；答对把它拉长，答错把它压缩——间隔跟着你的记忆走，而不是跟日历走。
+          </p>
+          <svg
+            class="memory-chart"
+            viewBox="0 0 490 128"
+            role="img"
+            aria-label="记忆保留率随时间衰减、每次复习回到满值的示意图"
+          >
+            <line
+              class="memory-goal-line"
+              x1="20"
+              :y1="memoryCurve.goalY"
+              :x2="memoryCurve.endX"
+              :y2="memoryCurve.goalY"
+            />
+            <path class="memory-curve" :d="memoryCurve.path" />
+            <circle
+              v-for="(mark, index) in memoryCurve.marks"
+              :key="index"
+              class="memory-mark"
+              :cx="mark.x"
+              :cy="mark.y"
+              r="3.6"
+            />
+            <text class="memory-axis" x="2" y="48">100%</text>
+            <text class="memory-axis" x="2" y="104">90%</text>
+            <text class="memory-axis" x="20" y="118">第 0 天</text>
+            <text class="memory-axis" :x="memoryCurve.endX" y="118" text-anchor="end">
+              第 {{ memoryCurve.totalDays }} 天
+            </text>
+          </svg>
+          <p class="memory-legend">
+            <span>━ 记忆保留率</span>
+            <span>┈ {{ retentionPercent }} 复习线</span>
+            <span>● 复习日：2 → 4 → 8 → 16 天，越熟隔越久</span>
+          </p>
+        </div>
+        <ul class="memory-facts reveal-item">
+          <li>
+            <strong>{{ retentionPercent }}</strong>
+            <span>目标保留率，跌到这条线才安排复习</span>
+          </li>
+          <li>
+            <strong>{{ growthText }}</strong>
+            <span>每次答对，稳定度拉长近一倍</span>
+          </li>
+          <li>
+            <strong>{{ MASTERED_STABILITY }} 天</strong>
+            <span>稳定度到这里算「已掌握」，之后隔很久才回头</span>
+          </li>
+          <li>
+            <strong>{{ decayPercent }}</strong>
+            <span>答错缩到四成，半天后再见一次</span>
+          </li>
+        </ul>
       </div>
     </section>
 
@@ -436,7 +574,7 @@ onUnmounted(() => {
         <article class="feature">
           <span class="feature-num">03</span>
           <h3>错题当轮回炉</h3>
-          <p>答错与接近的题自动排到本轮队尾重练，6 格 Leitner 决定下次什么时候再见。</p>
+          <p>答错与接近的题自动排到本轮队尾重练；每条短语记着「记忆稳定多少天」，答对拉长、答错缩水，下次何时复习由遗忘曲线算。</p>
         </article>
         <article class="feature">
           <span class="feature-num">04</span>

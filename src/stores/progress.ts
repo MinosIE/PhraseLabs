@@ -40,7 +40,7 @@ export const useProgressStore = defineStore('progress', () => {
     }
   }
 
-  /** 用户声明这条短语已掌握：只调整记忆盒子与排期，不动当日统计与对错计数 */
+  /** 用户声明这条短语已掌握：只调整记忆稳定度与排期，不动当日统计与对错计数 */
   function markMastered(phraseId: string): void {
     progress.value = {
       ...progress.value,

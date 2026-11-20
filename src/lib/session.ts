@@ -1,6 +1,6 @@
 import type { CategoryId, ModeSetting, Phrase, StudyMode } from '@/types/phrase'
 import type { PhraseProgress, QueueItem, Settings } from '@/types/progress'
-import { isDue } from './srs'
+import { isDue, retrievability } from './srs'
 
 /** 本轮训练的临时范围：不写入设置，只影响本次队列 */
 export interface QueueScope {
@@ -40,13 +40,14 @@ export function buildQueue(
     return categories.length === 0 || categories.includes(phrase.category)
   })
 
-  // 到期最久的先复习，新词排在其后；未到期的随机打乱作为补充
+  // 到期项按记忆保留率从低到高排：快忘的先复习，新词（保留率 0）排最前；未到期的随机补充
   const due = pool
     .filter((phrase) => isDue(progress[phrase.id], now))
-    .sort(
-      (a, b) =>
-        (progress[a.id]?.nextReview ?? now) - (progress[b.id]?.nextReview ?? now),
-    )
+    .sort((a, b) => {
+      const gap = retrievability(progress[a.id], now) - retrievability(progress[b.id], now)
+      if (gap !== 0) return gap
+      return (progress[a.id]?.nextReview ?? now) - (progress[b.id]?.nextReview ?? now)
+    })
   const upcoming = shuffle(pool.filter((phrase) => !isDue(progress[phrase.id], now)))
 
   // 指定集合是一次明确的选择，按集合大小练完，不受每日目标截断

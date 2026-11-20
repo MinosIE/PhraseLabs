@@ -24,6 +24,9 @@ import {
   isDue,
   isMastered,
   masterProgress,
+  MASTERED_STABILITY,
+  retrievability,
+  TARGET_RETENTION,
 } from '@/lib/srs'
 import { buildQueue } from '@/lib/session'
 import {
@@ -31,6 +34,7 @@ import {
   importData,
   loadSessionDraft,
   normalizeBestCombo,
+  normalizeProgress,
   saveSessionDraft,
 } from '@/lib/storage'
 import { useSessionStore } from '@/stores/session'
@@ -105,38 +109,74 @@ describe('反馈文案', () => {
 })
 
 describe('srs', () => {
-  it('答对升级、答错降级，且到期时间后退', () => {
+  it('答对拉长稳定度、答错压到四成，到期时间跟着变', () => {
     const now = Date.UTC(2026, 0, 1)
     const first = applyReview(undefined, true, now)
-    expect(first.box).toBe(1)
+    // 新词按 1 天基准起算，答对后是 1.9 天
+    expect(first.stability).toBeCloseTo(1.9, 6)
     expect(isDue(first, now)).toBe(false)
+    expect(isDue(first, now + 2 * DAY_MS)).toBe(true)
 
-    const second = applyReview(first, true, now)
-    expect(second.box).toBe(2)
+    const second = applyReview(first, true, first.nextReview)
+    expect(second.stability).toBeCloseTo(first.stability * 1.9, 6)
     expect(second.nextReview).toBeGreaterThan(first.nextReview)
 
-    const back = applyReview(second, false, now)
-    expect(back.box).toBe(0)
+    const back = applyReview(second, false, second.nextReview)
+    expect(back.stability).toBeCloseTo(second.stability * 0.4, 6)
+    // 间隔按新的稳定度重算：比答对时短得多
+    expect(back.nextReview - back.lastReviewed).toBeLessThan(
+      second.nextReview - second.lastReviewed,
+    )
     expect(back.wrong).toBe(1)
   })
 
-  it('box 上限为 5 且 4 以上算已掌握', () => {
-    let progress = createProgress(0)
-    for (let i = 0; i < 8; i++) progress = applyReview(progress, true, 0)
-    expect(progress.box).toBe(5)
-    expect(isMastered(progress)).toBe(true)
+  it('回忆概率按指数衰减，到稳定度那天降到目标保留率', () => {
+    const now = Date.UTC(2026, 0, 1)
+    const progress = applyReview(undefined, true, now)
+    expect(retrievability(progress, now)).toBeCloseTo(1, 6)
+    expect(retrievability(progress, progress.nextReview)).toBeCloseTo(TARGET_RETENTION, 6)
+    expect(retrievability(progress, now + 15 * DAY_MS)).toBeLessThan(0.5)
+    expect(retrievability(undefined, now)).toBe(0)
   })
 
-  it('「我会了」只抬高盒子并推后排期，不改对错计数', () => {
+  it('拖到记忆明显衰减才复习，增长打折扣；稳定度有上下限', () => {
+    const now = Date.UTC(2026, 0, 1)
+    const fresh = applyReview(undefined, true, now)
+    const onTime = applyReview(fresh, true, fresh.nextReview)
+    const late = applyReview(fresh, true, now + 10 * DAY_MS)
+    expect(late.stability).toBeLessThan(onTime.stability)
+
+    let hot = createProgress(now)
+    for (let i = 0; i < 12; i++) hot = applyReview(hot, true, hot.nextReview)
+    expect(hot.stability).toBeLessThanOrEqual(180)
+    expect(isMastered(hot)).toBe(true)
+
+    // 答错再狠也不会跌到半个天以下，避免刚练完又立刻到期
+    const cold = applyReview(undefined, false, now)
+    expect(cold.stability).toBe(0.5)
+  })
+
+  it('错得多的词答对时增长打折', () => {
+    const now = Date.UTC(2026, 0, 1)
+    let shaky = applyReview(undefined, true, now)
+    shaky = applyReview(shaky, false, now)
+    shaky = applyReview(shaky, false, now)
+    const clean = applyReview(undefined, true, now)
+    const shakyNext = applyReview(shaky, true, now)
+    const cleanNext = applyReview(clean, true, now)
+    expect(shakyNext.stability).toBeLessThan(cleanNext.stability)
+  })
+
+  it('「我会了」把稳定度抬到已掌握并推后排期，不改对错计数', () => {
     const now = new Date(2026, 0, 10, 12).getTime()
     const wrong = applyReview(applyReview(undefined, true, now), false, now)
-    expect(wrong.box).toBe(0)
-    expect(wrong.wrong).toBe(1)
+    expect(wrong.stability).toBeCloseTo(0.76, 6)
+    expect(isMastered(wrong)).toBe(false)
 
     const mastered = masterProgress(wrong, now)
-    expect(mastered.box).toBe(4)
+    expect(mastered.stability).toBe(MASTERED_STABILITY)
     expect(isMastered(mastered)).toBe(true)
-    expect(mastered.nextReview).toBeGreaterThan(now)
+    expect(mastered.nextReview).toBe(now + MASTERED_STABILITY * DAY_MS)
     // 答错了就是答错了：错误次数与正确次数都不被改写
     expect(mastered.wrong).toBe(wrong.wrong)
     expect(mastered.correct).toBe(wrong.correct)
@@ -169,6 +209,31 @@ describe('session', () => {
     expect(queue).toHaveLength(3)
     expect(queue[0].phraseId).toBe('daily-001')
     expect(queue[0].mode).toBe('zh-en')
+  })
+
+  it('到期项按记忆保留率排序，快忘的排在前面', () => {
+    const now = Date.UTC(2026, 0, 20)
+    // 保留率低 = 距离上次复习的时间已经远超稳定度
+    const slow = {
+      ...createProgress(now),
+      stability: 6,
+      lastReviewed: now - 6 * DAY_MS,
+      nextReview: now - DAY_MS,
+    }
+    const fast = {
+      ...createProgress(now),
+      stability: 1,
+      lastReviewed: now - 3 * DAY_MS,
+      nextReview: now - DAY_MS,
+    }
+    const queue = buildQueue(
+      phrases,
+      { 'daily-001': slow, 'daily-002': fast },
+      { categories: [], dailyGoal: 2, mode: 'zh-en' },
+      now,
+      { phraseIds: ['daily-001', 'daily-002'] },
+    )
+    expect(queue.map((item) => item.phraseId)).toEqual(['daily-002', 'daily-001'])
   })
 
   it('混合模式包含中英两种题型', () => {
@@ -501,6 +566,23 @@ describe('storage', () => {
     const settings = importData(exportData(progress, settingsDefault(), stats))
     expect(settings.progress).toEqual(progress)
     expect(settings.stats).toEqual(stats)
+  })
+
+  it('旧备份里的盒子进度能换算成稳定度', () => {
+    expect(normalizeProgress({ box: 0 }).stability).toBe(1)
+    expect(normalizeProgress({ box: 4 }).stability).toBe(7)
+    expect(normalizeProgress({ box: 5 }).stability).toBe(15)
+    // 已有稳定度的直接沿用，新词的 0 也保留（不会被当成缺失字段）
+    expect(normalizeProgress({ stability: 3.5, box: 1 }).stability).toBe(3.5)
+    expect(normalizeProgress({ stability: 0 }).stability).toBe(0)
+
+    const legacy = JSON.stringify({
+      version: 1,
+      progress: { 'daily-001': { box: 3, correct: 4, wrong: 1, lastReviewed: 1, nextReview: 2 } },
+      settings: {},
+      stats: {},
+    })
+    expect(importData(legacy).progress['daily-001'].stability).toBe(4)
   })
 
   it('拒绝未知版本', () => {

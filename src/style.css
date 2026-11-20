@@ -830,6 +830,106 @@ h3 {
   line-height: 1.7;
 }
 
+/* 首页：遗忘曲线专题区块 */
+.memory-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: 18px;
+  align-items: stretch;
+}
+
+.memory-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.memory-lead {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 14px;
+  line-height: 1.8;
+}
+
+.memory-lead strong {
+  color: var(--ink);
+}
+
+.memory-chart {
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.memory-curve {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2.2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.memory-goal-line {
+  stroke: var(--line-strong);
+  stroke-width: 1;
+  stroke-dasharray: 5 5;
+}
+
+.memory-mark {
+  fill: var(--gold);
+  stroke: var(--surface);
+  stroke-width: 1.5;
+}
+
+.memory-axis {
+  fill: var(--muted);
+  font: 500 10px/1 var(--font-mono);
+  letter-spacing: 0.04em;
+}
+
+.memory-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.memory-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+}
+
+.memory-facts li {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 18px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.memory-facts strong {
+  font-family: var(--font-serif);
+  font-size: 28px;
+  line-height: 1;
+  color: var(--accent);
+}
+
+.memory-facts span {
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.65;
+}
+
 /* 首页：分类入口收成紧凑网格，避免十多个大卡把页面拉长 */
 .category-grid {
   display: grid;
@@ -2172,6 +2272,8 @@ kbd {
   .loop-step { padding: 20px 0; border-right: none; border-bottom: 1px solid var(--line); }
   .loop-step:not(:first-child) { padding-left: 0; }
   .loop-step:last-child { border-bottom: none; }
+  .memory-grid { grid-template-columns: 1fr; }
+  .memory-facts strong { font-size: 24px; }
   .landing-cta { margin-top: 48px; padding: 28px 24px; }
   .demo-section { grid-template-columns: 1fr; gap: 32px; margin-top: 56px; padding: 36px 28px; }
 }

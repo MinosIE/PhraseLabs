@@ -27,6 +27,27 @@ export const DEFAULT_SETTINGS: Settings = {
   favorites: [],
 }
 
+/** 旧数据只有 Leitner 盒子：按原间隔换算成稳定度（天），0–5 盒依次对 1/1/2/4/7/15 天 */
+const STABILITY_BY_BOX = [1, 1, 2, 4, 7, 15]
+
+type RawProgress = Partial<PhraseProgress> & { box?: number }
+
+/** 兼容旧进度与手改数据：缺稳定的就用旧盒子换算，其余字段归一到数字 */
+export function normalizeProgress(raw: RawProgress): PhraseProgress {
+  const stability =
+    typeof raw.stability === 'number' && Number.isFinite(raw.stability) && raw.stability >= 0
+      ? raw.stability
+      : (STABILITY_BY_BOX[Math.round(raw.box ?? 0)] ?? 1)
+
+  return {
+    stability,
+    correct: Number(raw.correct) || 0,
+    wrong: Number(raw.wrong) || 0,
+    lastReviewed: Number(raw.lastReviewed) || 0,
+    nextReview: Number(raw.nextReview) || 0,
+  }
+}
+
 /** 兼容旧数据：跟写、听写模式已移除，回退为默认模式 */
 function normalizeSettings(raw: Partial<Settings>): Settings {
   const settings = { ...DEFAULT_SETTINGS, ...raw }
@@ -55,7 +76,10 @@ function write(key: string, value: unknown): void {
 }
 
 export function loadProgress(): Record<string, PhraseProgress> {
-  return read(KEYS.progress, {} as Record<string, PhraseProgress>)
+  const raw = read<Record<string, RawProgress>>(KEYS.progress, {})
+  return Object.fromEntries(
+    Object.entries(raw).map(([id, item]) => [id, normalizeProgress(item)]),
+  )
 }
 
 export function saveProgress(progress: Record<string, PhraseProgress>): void {
@@ -177,7 +201,12 @@ export function importData(raw: string): AppData {
   return {
     version: 1,
     exportedAt: data.exportedAt ?? new Date().toISOString(),
-    progress: data.progress as Record<string, PhraseProgress>,
+    progress: Object.fromEntries(
+      Object.entries(data.progress as Record<string, RawProgress>).map(([id, item]) => [
+        id,
+        normalizeProgress(item),
+      ]),
+    ),
     settings: normalizeSettings(data.settings ?? {}),
     stats: data.stats as DayStats,
     bestCombo: normalizeBestCombo(data.bestCombo),
