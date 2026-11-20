@@ -31,7 +31,8 @@
 ```bash
 pnpm install
 pnpm dev          # 开发服务器
-pnpm test         # 单元测试
+pnpm check:content # 内容自检：id/en 唯一、别名长度、例句可挖空、文档条数
+pnpm test         # 单元测试（pretest 会先跑内容自检）
 pnpm typecheck    # 类型检查
 pnpm build        # 类型检查 + SSG 预渲染构建（含 sitemap/llms.txt/404.html），输出到 dist/
 pnpm preview      # 预览构建产物
@@ -55,7 +56,7 @@ pnpm preview      # 预览构建产物
 ## 目录结构
 
 ```text
-scripts/       postbuild（404.html / sitemap.xml / llms.txt / 产物校验）
+scripts/       postbuild（404.html / sitemap.xml / llms.txt / 产物校验）、validate-phrases（内容自检）
 src/
   data/         短语内容与分类
   lib/          判定、复习算法、存储、SEO 常量与日期工具

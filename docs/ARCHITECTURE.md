@@ -118,6 +118,7 @@ interface AppData {        // 导出/导入格式
 - 新增页面：在 `router/index.ts` 注册路由并给 `meta.title` / `meta.robots`，在 `App.vue` 的 `DESCRIPTIONS` 补充描述；若要参与收录，还要加入 `vite.config.ts` 的 `includedRoutes`。
 - 让任意短语集合开练：调用 `session.startWith(ids, label)`，队列会忽略分类设置、不按每日目标截断；临时分类/模式用 `session.start({ categories, mode, label })`，均不写回设置。
 - 更换存储：只需替换 `lib/storage.ts` 的读写函数，保持 `AppData` 与 `SessionDraft` 契约即可。
+- 内容校验：`scripts/validate-phrases.mjs` 借 Vite 的 SSR 加载器直接 import TS 数据（不写正则解析），检查 `id`/`en` 唯一、短语形态、别名长度、例句可挖空、分类计数与 README/PRODUCT 数字；挂在 `package.json` 的 `pretest`，`pnpm test` 前自动执行。
 
 ## 已知边界
 

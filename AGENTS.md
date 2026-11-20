@@ -8,7 +8,7 @@
 
 - 项目一句话：纯前端、无后端的英语**短语**键盘训练站；用户看提示输入英文短语或中文释义，即时判定，用 Leitner 盒子安排复习，进度只存浏览器 localStorage。
 - 技术栈：Vue 3 `^3.5.44` + Pinia `^4.1.0` + vue-router `^5.5.1` + Vite `^8.3.6` + TypeScript `~6.0.3` + Vitest `^5.1.0` + GSAP `^3.15.1` + vite-ssg `^28.3.0`（搭配 `@unhead/vue` 写 head），包管理器 pnpm（CI 固定 v12 / Node 22）。
-- 命令（均来自 `package.json`）：`pnpm dev` / `pnpm test` / `pnpm typecheck` / `pnpm build` / `pnpm preview` / `pnpm test:watch`。
+- 命令（均来自 `package.json`）：`pnpm dev` / `pnpm check:content` / `pnpm test` / `pnpm typecheck` / `pnpm build` / `pnpm preview` / `pnpm test:watch`。
 - 改代码前必读：第 3 节（尤其是 3.3 改动联动表和 3.4 真实踩坑清单）。
 
 ## 1. 项目全局认知
@@ -63,6 +63,7 @@ src/
   style.css             全部全局样式与语义色变量（单文件）
   lib/__tests__/core.test.ts  唯一测试文件
 scripts/postbuild.mjs   构建后处理：404.html、sitemap.xml、llms.txt、产物校验
+scripts/validate-phrases.mjs  内容校验：id/en 唯一、别名长度、例句可挖空、分类计数与文档数字（`pretest` 自动跑）
 vite.config.ts          VITE_BASE_PATH → base；ssgOptions（dirStyle + includedRoutes）
 ```
 
@@ -165,7 +166,9 @@ Vue SFC 统一 `<script setup lang="ts">` → `<template>` →（无 `<style sco
 
 ### 2.8 测试要求
 
-Vitest，唯一测试文件 `src/lib/__tests__/core.test.ts`，当前 46 项。覆盖判定、队列（含临时范围与指定集合、再来一轮沿用范围）、Leitner、`countDueBefore`、归一化、存储迁移与最高连对往返、本轮草稿跨天失效、数据结构不变量，以及 SEO/内容层（旧 hash 映射、canonical、路由 robots 策略、分类路由与计数一致性、11 类分类文案与 FAQ 完整性、`hashDay` 锁定值与今日一句稳定性）。**提交前必跑** `pnpm test && pnpm typecheck && pnpm build`；CI（`.github/workflows/deploy.yml`）先测后构建，任一失败不部署。
+Vitest，唯一测试文件 `src/lib/__tests__/core.test.ts`，当前 46 项。覆盖判定、队列（含临时范围与指定集合、再来一轮沿用范围）、Leitner、`countDueBefore`、归一化、存储迁移与最高连对往返、本轮草稿跨天失效、数据结构不变量，以及 SEO/内容层（旧 hash 映射、canonical、路由 robots 策略、分类路由与计数一致性、11 类分类文案与 FAQ 完整性、`hashDay` 锁定值与今日一句稳定性）。
+
+`package.json` 的 `pretest` 会先跑 `scripts/validate-phrases.mjs`（即 `pnpm check:content`）：`id`/`en` 全局唯一、`en` 含空格或连字符、`aliases` 归一化后 ≥2 汉字、`exampleEn` 可挖空、分类计数与 `phraseCountByCategory` 一致、README/PRODUCT 的条数与分类数同步。它通过 Vite SSR 加载器直接读 TS 数据，不要改成正则解析；任一问题失败会阻止测试与 CI。**提交前必跑** `pnpm test && pnpm typecheck && pnpm build`；CI（`.github/workflows/deploy.yml`）先测后构建，任一失败不部署。
 
 ## 3. AI Agent 开发指导 ★最高优先级★
 
@@ -248,6 +251,7 @@ Vitest，唯一测试文件 `src/lib/__tests__/core.test.ts`，当前 46 项。�
 ### 3.7 回归清单
 
 - [ ] `pnpm test` / `pnpm typecheck` / `pnpm build` 全过（`[postbuild]` 输出 11 分类 / 703 条，预渲染 13 个页面）
+- [ ] `pnpm check:content` 通过（`pnpm test` 已包含；它同时校验文档里的条数与分类数）
 - [ ] 无重复 `id` / `en`（跨分类有意重复需确认）
 - [ ] `aliases` 全部 ≥ 2 汉字；`exampleEn` 含 `en`
 - [ ] 新增分类/题型/字段已按 3.3 联动表改全
@@ -280,7 +284,7 @@ Vitest，唯一测试文件 `src/lib/__tests__/core.test.ts`，当前 46 项。�
 
 ### 5.3 未完成计划
 
-`docs/PRODUCT.md` P3 列出：贡献者内容校验脚本、可选高频错词本。内容扩充持续进行，优先常见、简单、日常高频短语。SEO/GEO 方面 P0–P3 已全部完成；仅剩 P4（前 100 条短语详情页，需上线观察 4–6 周数据再定），见 `docs/SEO.md`。
+`docs/PRODUCT.md` P3 列出：可选高频错词本。内容扩充持续进行，优先常见、简单、日常高频短语；贡献者内容校验脚本已完成（`pnpm check:content`）。SEO/GEO 方面 P0–P3 已全部完成；仅剩 P4（前 100 条短语详情页，需上线观察 4–6 周数据再定），见 `docs/SEO.md`。
 
 ### 5.4 技术债务
 
@@ -312,3 +316,4 @@ Vitest，唯一测试文件 `src/lib/__tests__/core.test.ts`，当前 46 项。�
 - 2026-11-20：实施 SEO P0–P2。接入 `vite-ssg@28` + `@unhead/vue@2.1.17`，路由改 history 并新增 `/phrases/:category` 分类落地页；新增 `lib/seo.ts`、`CategoryView.vue`、`scripts/postbuild.mjs`（404.html / sitemap.xml / llms.txt / 产物校验）、`public/robots.txt` 与 `public/og.png`；`build` 改为 `vue-tsc -b && vite-ssg build && node scripts/postbuild.mjs`。踩坑：`router/index.ts` 里 `createRouter(createWebHistory())` 会在构建期报 `window is not defined`，现只导出 `routes`，实例由 vite-ssg 创建；`vite-ssg@28` 的 `includedRoutes` 属于 `vite.config.ts` 的 `ssgOptions`，不在路由参数里。测试 29 → 36 项（新增旧 hash 映射、canonical、路由 robots、分类计数一致性）。
 - 2026-11-20：实施 SEO P3。新增 `data/categoryContent.ts`（11 类 intro/scenario/tips/faq，`Record<CategoryId, ...>` 强制齐全）与 `lib/daily.ts`（FNV-1a 日期哈希）；`App.vue` 用 `buildStructuredData()` 按页输出 `BreadcrumbList`/`CollectionPage`/`DefinedTermSet`/`FAQPage`（必须是函数声明，`const` 会因 `useHead` 同步求值撞 TDZ）；`HomeView` 加「今日一句」，`CategoryView` 加双卡说明、FAQ 与「5 条快练」；`llms.txt` 增判定规则与数据隐私分节；`style.css` 补每日一句/分类说明/FAQ 样式，并把触屏 `.btn`/`.chip`/`.hint-link`/`.icon-btn` 抬到 44px。测试 36 → 40 项。
 - 2026-11-20：新增本轮结算页与历史最高连对。`StudyView` 答完最后一题停在结算页（作答题数/正确率/本轮最高连对含「新纪录」徽标/明天到期 + 页脚新掌握·提示次数·历史纪录日期）；`session` 新增 `masteredAtStart`、`recordBeaten`、`syncBestCombo()`、`lastOptions`；`progress` 新增 `bestCombo` 与 `noteCombo()`；存储新增 `phraselabs:v1:best-combo` 与 `normalizeBestCombo`，`exportData` 增第 4 参数、`importData` 归一（旧备份缺字段归零），`AppData.bestCombo?` 保持 `version: 1` 不变；`srs.countDueBefore()` 供「明天到期」。浏览器实测两处真实缺陷：恢复的已完成草稿不补记历史最高、挂载即结束时不 focus，均已修。测试 40 → 46 项。
+- 2026-11-20：新增内容校验脚本 `scripts/validate-phrases.mjs`。借 Vite 的 SSR 加载器直接 import TS 数据（不写正则解析），校验 `id`/`en` 唯一、`en` 含空格或连字符、`aliases` ≥2 汉字、`exampleEn` 可挖空、分类计数与 README/PRODUCT 数字；挂在 `pretest`，`pnpm test` 与 CI 自动执行，失败时退出码 1 阻止测试。同步 CONTRIBUTING/README/PRODUCT/ARCHITECTURE。测试仍为 46 项。

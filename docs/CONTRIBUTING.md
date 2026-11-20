@@ -27,13 +27,15 @@
 
 ```bash
 pnpm install
-pnpm test
+pnpm check:content   # 内容自检：id/en 唯一、别名长度、例句可挖空、文档条数
+pnpm test            # pretest 会先自动跑一遍上面的检查
 pnpm typecheck
 pnpm build
 ```
 
 自检清单：
 
+- [ ] `pnpm check:content` 无输出问题项
 - [ ] `id` 唯一，序号未与现有条目冲突
 - [ ] `aliases` 覆盖常见中文说法，且每个关键词不少于 2 字
 - [ ] 英文例句自然并包含该短语（或 `enAliases` 里的变体），填空模式能挖出空

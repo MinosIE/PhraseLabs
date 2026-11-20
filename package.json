@@ -8,6 +8,8 @@
     "build": "vue-tsc -b && vite-ssg build && node scripts/postbuild.mjs",
     "preview": "vite preview",
     "typecheck": "vue-tsc -b",
+    "check:content": "node scripts/validate-phrases.mjs",
+    "pretest": "node scripts/validate-phrases.mjs",
     "test": "vitest run",
     "test:watch": "vitest"
   },
