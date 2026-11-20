@@ -272,8 +272,9 @@ Vitest，唯一测试文件 `src/lib/__tests__/core.test.ts`，当前 50 项。�
 | CI 部署 | `.github/workflows/deploy.yml` | 测试门禁与 Pages 发布 | 🟡常用 | 改构建/发布时 |
 | UI 验证记录 | `QA.md` | ui-studio 动效/配色审查、对比度实测与误报判定 | 🟡常用 | 改动效/配色/交互前 |
 | SEO / GEO 与 SSG | `docs/SEO.md` | 索引策略、路由与预渲染改造、结构化数据、llms.txt | 🟡常用 | 改路由/构建/元信息前 |
+| 下一步计划 | `docs/ROADMAP.md` | 待办优先级、每项做/不做/验收、门禁与文档同步矩阵 | 🔴必读 | 开始新一轮开发前 |
 
-快捷路由：架构问题 → `docs/ARCHITECTURE.md`；数据模型 → `src/types/` + `docs/ARCHITECTURE.md`；业务规则 → `docs/PRODUCT.md`；动效/配色 → `QA.md` + `src/style.css`；部署环境 → `vite.config.ts` + deploy workflow；内容贡献 → `docs/CONTRIBUTING.md`；收录与 SSG → `docs/SEO.md`。
+快捷路由：架构问题 → `docs/ARCHITECTURE.md`；数据模型 → `src/types/` + `docs/ARCHITECTURE.md`；业务规则 → `docs/PRODUCT.md`；动效/配色 → `QA.md` + `src/style.css`；部署环境 → `vite.config.ts` + deploy workflow；内容贡献 → `docs/CONTRIBUTING.md`；收录与 SSG → `docs/SEO.md`；下一轮做什么 → `docs/ROADMAP.md`。
 
 ## 5. 当前项目状态
 
@@ -304,7 +305,7 @@ Vitest，唯一测试文件 `src/lib/__tests__/core.test.ts`，当前 50 项。�
 
 ### 5.6 后续规划 / 路线图
 
-见 `docs/PRODUCT.md`「路线」：P0–P2 已完成，P3 进行中（当前 789 条，内容继续扩充）；SEO 侧 P0–P3 已完成，P4 待数据观察。架构/接口/约定变更时同步更新本文件，否则指南会快速腐化。
+见 `docs/PRODUCT.md`「路线」与 `docs/ROADMAP.md`：A1 线上可用性核查 → A2 高频错词本 → A3 内容自检常态化 → B1 样式拆分 / B2 移动端输入 → C1 SEO P4（待数据）/ C2 成绩卡 / C3 依赖升级；P0–P2 已完成，P3 进行中（当前 789 条，内容继续扩充）。架构/接口/约定变更时同步更新本文件，否则指南会快速腐化。
 
 ## 6. 变更记录（本文件）
 
@@ -337,3 +338,5 @@ Vitest，唯一测试文件 `src/lib/__tests__/core.test.ts`，当前 50 项。�
 - 2026-11-20：首页新增「遗忘曲线」专题区块（三步循环之后）：左侧 `card` 内一段说明 + SVG 衰减示意图（复习日圆点、虚线 90% 复习线、第 0/46 天刻度），右侧 4 格数字（`TARGET_RETENTION`/`GROWTH`/`MASTERED_STABILITY`/`DECAY` 直接引用，避免文案与算法脱节）；新增样式 `.memory-grid`/`.memory-card`/`.memory-chart`/`.memory-curve`/`.memory-goal-line`/`.memory-mark`/`.memory-axis`/`.memory-legend`/`.memory-facts`，均用语义 token，860px 以下变单列。
 
 - 2026-11-20：技术债清理。删除从未被引用的脚手架资源 `src/assets/`（hero.png / vite.svg / vue.svg）与 `public/icons.svg`（6 个社交图标 symbol，无任何 `<use>` 引用，但会被拷进 dist）；移除无调用的 `lib/date.ts` `addDays`，把 `lib/speech.ts` `pickVoice` 收回为内部函数；修正 `docs/SEO.md` 测试数（40 → 50）与 §5.1「五种模式」的过时表述。
+
+- 2026-11-20：新增 `docs/ROADMAP.md`（下一步计划）：基线快照、优先级总览（A1 线上可用性核查 / A2 高频错词本 / A3 内容自检常态化 / B1 样式拆分 / B2 移动端输入 / B3 判定抽检 / C1 SEO P4 / C2 成绩卡 / C3 依赖升级）、逐项「做–不做–验收–测试–文档」、统一门禁与文档同步矩阵；§4 文档索引与 §5.6 路线图同步指向。
