@@ -55,7 +55,7 @@ export const emotionPhrases: Phrase[] = [
   { id: 'emotions-018', en: 'be proud of', zh: '为……骄傲', aliases: ['骄傲', '自豪', '得意'],
     category: 'emotions', tags: ['高频', '介词搭配'], level: 1,
     exampleEn: 'His parents must be proud of him.', exampleZh: '他的父母一定为他骄傲。' },
-  { id: 'emotions-019', en: 'be ashamed of', zh: '为……感到羞愧', aliases: ['羞愧', '惭愧', '不好意思'],
+  { id: 'emotions-019', en: 'be ashamed of', zh: '为……感到羞愧', aliases: ['羞愧', '惭愧', '不好意思', '羞耻'],
     category: 'emotions', tags: ['介词搭配'], level: 3,
     exampleEn: 'He seemed to be ashamed of his behavior.', exampleZh: '他似乎为自己的行为感到羞愧。' },
   { id: 'emotions-020', en: 'be jealous of', zh: '嫉妒；羡慕', aliases: ['嫉妒', '羡慕', '吃醋'],

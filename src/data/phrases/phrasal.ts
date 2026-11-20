@@ -100,7 +100,7 @@ export const phrasalPhrases: Phrase[] = [
   { id: 'phrasal-035', en: 'break out', zh: '爆发（战争、火灾）', aliases: ['爆发', '突然发生', '起火'],
     category: 'phrasal', tags: ['动词短语'], level: 3,
     exampleEn: 'Fires can break out in old buildings.', exampleZh: '老建筑可能发生火灾。' },
-  { id: 'phrasal-036', en: 'bring about', zh: '导致；引起', aliases: ['导致', '引起', '带来'],
+  { id: 'phrasal-036', en: 'bring about', zh: '导致；引起', aliases: ['导致', '引起', '带来', '造成'],
     category: 'phrasal', tags: ['动词短语', '正式'], level: 3,
     exampleEn: 'The policy will bring about major changes.', exampleZh: '这项政策将带来重大变化。' },
   { id: 'phrasal-037', en: 'bring down', zh: '降低；击倒', aliases: ['降低', '击倒', '减少'],

@@ -343,7 +343,7 @@ export const dailyPhrases: Phrase[] = [
   { id: 'daily-118', en: 'my treat', zh: '我请客', aliases: ['我请客', '我买单', '我付钱'],
     category: 'daily', tags: ['口语', '餐饮'], level: 1,
     exampleEn: 'Lunch is my treat today.', exampleZh: '今天午饭我请。' },
-  { id: 'daily-119', en: 'there you go', zh: '这就对了；给你', aliases: ['这就对了', '给你', '拿好'],
+  { id: 'daily-119', en: 'there you go', zh: '这就对了；给你', aliases: ['这就对了', '给你', '拿好', '就是这样', '拿去吧'],
     category: 'daily', tags: ['口语'], level: 1,
     exampleEn: 'There you go — your change.', exampleZh: '给你，你的找零。', tip: '递东西或鼓励对方做对时都能用。' },
   { id: 'daily-120', en: 'on my way', zh: '在路上；马上到', aliases: ['在路上', '马上到', '这就来'],
