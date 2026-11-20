@@ -7,10 +7,6 @@ export function dayKey(timestamp: number = Date.now()): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
 
-export function addDays(timestamp: number, days: number): number {
-  return timestamp + days * DAY_MS
-}
-
 export function formatDate(key: string): string {
   const [, month, day] = key.split('-')
   return `${Number(month)}月${Number(day)}日`

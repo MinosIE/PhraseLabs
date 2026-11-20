@@ -279,7 +279,7 @@ Vitest，唯一测试文件 `src/lib/__tests__/core.test.ts`，当前 50 项。�
 
 ### 5.1 已完成模块
 
-五种模式中的三种具体题型 + 混合、艾宾浩斯式遗忘曲线排期（记忆稳定度 + 保留率排序，旧 Leitner 盒子进度自动换算）、统计页、词库筛选、导入导出、主题、严格度、收藏、音色按设备能力显隐的手动朗读、加载态、自定义下拉、判定弹框与逐题对错、本轮结算页与历史最高连对（跨会话只增不减、随备份往返）、11 类 789 条短语（已完成跨分类去重，全库 `en` 唯一；补齐过高频口语/习语/短语动词，后又新增 26 条影视高频台词、14 条电影常见习语、24 条叠词习语、62 条同词重复/成对搭配习语（16 条 `X is X` + 18 条重复结构 + 28 条高频成对搭配）、24 条一词多义成对短语（60 → 84）；全部 `exampleEn` 均含可挖空形式）；词库分批渲染与「练这 N 条」、统计页「最该复习的 5 条」、本轮草稿刷新恢复、弹框内朗读与背景 `inert`；UI 动效与配色已按 ui-studio 做有界精修与对比度验证（见 `QA.md`）；SEO/GEO 与 SSG 已落地 P0–P3（history 路由、旧 hash 重定向、build 期预渲染 13 页、分类落地页、canonical/OG/JSON-LD、robots/sitemap/llms.txt；11 类专属文案 + 练习建议 + 场景 + FAQ 及按页 `BreadcrumbList`/`CollectionPage`/`DefinedTermSet`/`FAQPage`；首页「今日一句」与分类页「5 条快练」；触屏 44px 可点区域，见 `docs/SEO.md`）；首页已宣传化（真实短语视差层、**真实数据驱动的产品演示区**、三步循环与深色结尾 CTA，训练入口与预渲染正文不变，已做 Chrome 截图复核，见 `QA.md`）。
+三种题型（中→英 / 英→中 / 例句填空）+ 混合、艾宾浩斯式遗忘曲线排期（记忆稳定度 + 保留率排序，旧 Leitner 盒子进度自动换算）、统计页、词库筛选、导入导出、主题、严格度、收藏、音色按设备能力显隐的手动朗读、加载态、自定义下拉、判定弹框与逐题对错、本轮结算页与历史最高连对（跨会话只增不减、随备份往返）、11 类 789 条短语（已完成跨分类去重，全库 `en` 唯一；补齐过高频口语/习语/短语动词，后又新增 26 条影视高频台词、14 条电影常见习语、24 条叠词习语、62 条同词重复/成对搭配习语（16 条 `X is X` + 18 条重复结构 + 28 条高频成对搭配）、24 条一词多义成对短语（60 → 84）；全部 `exampleEn` 均含可挖空形式）；词库分批渲染与「练这 N 条」、统计页「最该复习的 5 条」、本轮草稿刷新恢复、弹框内朗读与背景 `inert`；UI 动效与配色已按 ui-studio 做有界精修与对比度验证（见 `QA.md`）；SEO/GEO 与 SSG 已落地 P0–P3（history 路由、旧 hash 重定向、build 期预渲染 13 页、分类落地页、canonical/OG/JSON-LD、robots/sitemap/llms.txt；11 类专属文案 + 练习建议 + 场景 + FAQ 及按页 `BreadcrumbList`/`CollectionPage`/`DefinedTermSet`/`FAQPage`；首页「今日一句」与分类页「5 条快练」；触屏 44px 可点区域，见 `docs/SEO.md`）；首页已宣传化（真实短语视差层、**真实数据驱动的产品演示区**、三步循环与深色结尾 CTA，训练入口与预渲染正文不变，已做 Chrome 截图复核，见 `QA.md`）。
 
 ### 5.2 开发中的模块
 
@@ -335,3 +335,5 @@ Vitest，唯一测试文件 `src/lib/__tests__/core.test.ts`，当前 50 项。�
 - 2026-11-20：复习算法由 Leitner 盒子换成艾宾浩斯式遗忘曲线。`PhraseProgress.box` 换为 `stability`（记忆稳定度，天），`srs.ts` 新增 `retrievability`（`R = 0.9^(Δt/稳定度)`）、`stabilityOf`、`TARGET_RETENTION`/`MASTERED_STABILITY`；答对 `×1.9`（逾期 1.5 倍以上只 `×1.35`，错误率 >40% 再 `×0.85`），答错 `×0.4`，下限 0.5 天、上限 180 天，`≥15 天` 算掌握，`nextReview = now + stability 天`。`buildQueue` 到期项改按保留率升序；`loadProgress`/`importData` 新增 `normalizeProgress`，把旧 `box` 按 1/1/2/4/7/15 天换算。统计页「熟练度 x/5」改「记忆稳定 N 天」；词库掌握度排序改按 `stability`；首页演示区、三步循环、特色卡与 `App.vue` 描述、`llms.txt` 同步主打遗忘曲线。测试 46 → 50 项。
 
 - 2026-11-20：首页新增「遗忘曲线」专题区块（三步循环之后）：左侧 `card` 内一段说明 + SVG 衰减示意图（复习日圆点、虚线 90% 复习线、第 0/46 天刻度），右侧 4 格数字（`TARGET_RETENTION`/`GROWTH`/`MASTERED_STABILITY`/`DECAY` 直接引用，避免文案与算法脱节）；新增样式 `.memory-grid`/`.memory-card`/`.memory-chart`/`.memory-curve`/`.memory-goal-line`/`.memory-mark`/`.memory-axis`/`.memory-legend`/`.memory-facts`，均用语义 token，860px 以下变单列。
+
+- 2026-11-20：技术债清理。删除从未被引用的脚手架资源 `src/assets/`（hero.png / vite.svg / vue.svg）与 `public/icons.svg`（6 个社交图标 symbol，无任何 `<use>` 引用，但会被拷进 dist）；移除无调用的 `lib/date.ts` `addDays`，把 `lib/speech.ts` `pickVoice` 收回为内部函数；修正 `docs/SEO.md` 测试数（40 → 50）与 §5.1「五种模式」的过时表述。

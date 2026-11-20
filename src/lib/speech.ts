@@ -83,7 +83,8 @@ export function hasEnglishVoice(voices: SpeechSynthesisVoice[] = getVoices()): b
   return voices.some((voice) => voice.lang.toLowerCase().startsWith('en'))
 }
 
-export function pickVoice(
+/** 音色优选：用户指定的 voiceURI → 常见系统音色 → en-US 本地音色 → 任意英文音色 */
+function pickVoice(
   voices: SpeechSynthesisVoice[],
   preferredURI: string,
 ): SpeechSynthesisVoice | null {

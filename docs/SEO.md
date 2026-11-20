@@ -125,7 +125,7 @@
 - [x] 路由 robots 策略有单测：`/`、`/library`、`/phrases/:category` 为 `index, follow`；`/study` 为 `noindex, follow`；`/stats`、`/settings` 为 `noindex, nofollow`
 - [x] 关闭 JS 打开 `/phrases/daily` 能看到标题、条数与词条列表（预渲染 HTML 即正文）
 - [x] 分类文案、FAQ 与今日一句有单测：11 类齐全且文案不重复、每类 3 条 FAQ、`hashDay` 锁定固定值、同日稳定跨天轮换
-- [x] `pnpm test`（40 项）/ `pnpm typecheck` / `pnpm build` 全绿
+- [x] `pnpm test`（50 项）/ `pnpm typecheck` / `pnpm build` 全绿
 - [ ] Lighthouse SEO ≥ 95：需线上环境实测
 - [ ] 搜索引擎收录与 AI 引回：上线后 2–4 周观察 Search Console / Bing Webmaster
 
