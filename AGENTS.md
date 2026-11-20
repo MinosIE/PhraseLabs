@@ -311,7 +311,7 @@ Vitest，唯一测试文件 `src/lib/__tests__/core.test.ts`，当前 54 项。�
 
 ### 5.6 后续规划 / 路线图
 
-见 `docs/PRODUCT.md`「路线」与 `docs/ROADMAP.md`：A1/A2/A3 已完成 → B1 样式拆分已完成 → B2 移动端输入 → B3 判定抽检 → C1 SEO P4（待数据）/ C2 成绩卡 / C3 依赖升级；P0–P2 已完成，P3 进行中（当前 789 条，内容继续扩充）。架构/接口/约定变更时同步更新本文件，否则指南会快速腐化。
+见 `docs/PRODUCT.md`「路线」与 `docs/ROADMAP.md`：A1/A2/A3/B1/B2 已完成，B3 第 1 轮已完成（后续常态）→ C1 SEO P4（待数据）/ C2 成绩卡 / C3 依赖升级；P0–P2 已完成，P3 进行中（当前 789 条，内容继续扩充）。架构/接口/约定变更时同步更新本文件，否则指南会快速腐化。
 
 ## 6. 变更记录（本文件）
 
@@ -354,3 +354,7 @@ Vitest，唯一测试文件 `src/lib/__tests__/core.test.ts`，当前 54 项。�
 - 2026-11-20：A3 完成。`scripts/validate-phrases.mjs` 末尾新增 `reportMetrics()`：难度与分类分布、别名均长、例句均长、`tip` 覆盖率，只输出不阻断；当前 L5 占 0%、`tip` 覆盖 3% 是已知内容缺口。
 
 - 2026-11-20：B1 完成。`src/style.css`（2326 行）拆成 `src/styles/{tokens,base,home,views,responsive}.css`，入口只保留 5 条 `@import`。拆分方式为**连续区段切分**（拼接后与原文件逐行 diff 一致），`@media` 顺序不变；`@media (hover: none)` 保留在 `views.css` 原位，避免上移到末尾后改变层叠结果。验证：`build` 通过且 CSS 仍单文件输出（Vite 内联 `@import`），首页/统计页深浅主题截图无异常。
+
+- 2026-11-20：B2 完成。`AnswerInput` 补 `inputmode`、`enterkeyhint=go` 与 `keepVisible()`（只在 `visualViewport` 高度明显缩小时把输入框滚到可视区中间），`StudyView.onGlobalKey` 开头对 `event.isComposing` 早退，`responsive.css` 新增 `@media (max-height: 520px)` 紧凑规则。未做 `viewport-fit=cover`/safe-area（当前无固定底栏，`env()` 恒为 0）。
+
+- 2026-11-20：B3 第 1 轮。固定种子抽 20 条×3 个候选，用 `gradeAnswer` 实测命中 39/60，补 17 个别名到 11 条短语；剩余 5 个经判断不属应接受表达。手法可复用：临时脚本走 Vite SSR 加载器直接调纯函数，不要手改判定逻辑。记录在 `QA.md` 与 `ROADMAP` §2.B3。

@@ -67,6 +67,22 @@
 - 稳定度到达 15 天（掌握线）的短语自动淡出错词榜，不需要手动删除。
 - console 无报错。
 
+### 移动端输入与判定抽检（2026-11-20）
+
+**移动端（375 × 667 模拟环境 + 手动模拟矮视口）**
+
+- 输入框属性实测：`inputmode=text`、`enterkeyhint=go`、`autocapitalize=off`、`autocorrect=off`、`spellcheck=false`；聚焦后 `scrollY` 保持 0，桌面端不会因避让逻辑跳动。
+- 无横向滚动（`scrollWidth == innerWidth`），学习卡与输入框均无溢出，console 无报错。
+- `@media (max-height: 520px)` 生效：`.study-card` padding 变 `16px 20px 12px`、`.prompt` 字号 `26px`（软键盘弹出/横屏矮视口下让题干和输入框同屏）。
+- 未做：`viewport-fit=cover` 与 `env(safe-area-inset-*)`。当前 viewport 声明不含 `cover`，页面也没有固定底栏，加了也是 0 值空声明；等真机上确实有遮挡再加。
+- 真机（iOS Safari / Android Chrome）未实测：软键盘弹出时的实际滚动行为需真机确认，逻辑上只在 `visualViewport.height < innerHeight × 0.8` 时触发。
+
+**判定抽检（固定种子抽 20 条 / 60 个候选表达）**
+
+- 首轮命中 39/60，未命中 21 个，逐条判后被认定为缺别名的 15 个已补（涉及 11 条短语，共 +17 个别名）：`connectors-006`（总而言之/综上）、`connectors-043`（总结一下）、`polysemy-069`（开一家公司/经营企业/经营一家企业）、`polysemy-025`（棕色的熊）、`polysemy-082`（正好八点）、`emotions-019`（羞耻）、`idioms-019`（祸中有福）、`idioms-070`（稳妥为好/小心驶得万年船）、`idioms-156`（人越多越好/人多热闹）、`phrasal-036`（造成）、`daily-119`（就是这样/拿去吧）。
+- 剩余 5 个候选经判定为**不应接受**，不补别名：`famous last words` 的「话说太满」、`to sum up` 的「总的来说」（归 `all in all`）、`good night` 的「早点休息」「晚上安」、`I can’t put my finger on it` 的「摸不着头脑」（更像「一头雾水」）。
+- 补完后同批候选未命中降至 5/60，均为上述不该接受的表达。下一轮若仍 0 缺陷，按 ROADMAP 改为季度抽检。
+
 ### 线上可用性核查（2026-11-20，线上 https://minosie.github.io/PhraseLabs/ 实测）
 
 - 首页 `200`（约 3.0s），`llms.txt` `200`；静态 HTML 已含新构建特征（`viewBox="0 0 490 128"`、曲线路径 `M 20.0 44.0 C …`、两处「下次什么时候再见」），说明 `a4818c7` 已完成 Pages 发布。
