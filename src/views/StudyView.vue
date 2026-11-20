@@ -360,6 +360,9 @@ function startRandom(): void {
 }
 
 function onGlobalKey(event: KeyboardEvent): void {
+  // 中文输入法选词期间的回车/方向键属于输入法，不要当成快捷键
+  if (event.isComposing) return
+
   if (event.ctrlKey && event.code === 'KeyP') {
     // 不可朗读时不要把浏览器的打印快捷键吞掉
     if (!canSpeakNow.value) return

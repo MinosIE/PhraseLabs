@@ -29,6 +29,23 @@ function focus(): void {
   input.value?.focus()
 }
 
+/**
+ * 软键盘弹出时把输入框滚到可视区中间，避免被键盘盖住。
+ * 只在可视高度明显缩小时才动，桌面端与键盘未弹时不会产生任何滚动。
+ */
+function keepVisible(): void {
+  const viewport = window.visualViewport
+  const el = input.value
+  if (!el || !viewport) return
+  if (viewport.height >= window.innerHeight * 0.8) return
+  el.scrollIntoView({ block: 'center', behavior: 'smooth' })
+}
+
+/** 键盘弹出有动画，等它落定后再量一次可视区高度 */
+function onFocus(): void {
+  window.setTimeout(keepVisible, 260)
+}
+
 onMounted(focus)
 
 // 提示保留到用户开始输入，避免一闪而过被错过
@@ -93,6 +110,7 @@ defineExpose({ focus })
         v-model="text"
         class="answer-input"
         type="text"
+        inputmode="text"
         :placeholder="placeholder"
         :disabled="disabled"
         :lang="mode === 'en-zh' ? 'zh-CN' : 'en'"
@@ -101,7 +119,8 @@ defineExpose({ focus })
         autocapitalize="off"
         autocorrect="off"
         spellcheck="false"
-        enterkeyhint="done"
+        enterkeyhint="go"
+        @focus="onFocus"
         @keydown="onKeydown"
         @compositionstart="composing = true"
         @compositionend="composing = false"

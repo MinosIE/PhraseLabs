@@ -54,6 +54,14 @@
   .demo-stage-foot { flex-direction: column; gap: 4px; }
 }
 
+/* 软键盘弹出 / 横屏矮视口：压缩学习页上下留白，让输入框和题干同屏可见 */
+@media (max-height: 520px) {
+  .study-card { padding: 16px 20px 12px; }
+  .prompt { font-size: 26px; }
+  .study-top { margin-bottom: 8px; }
+  .answer-hint { margin-top: 8px; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
