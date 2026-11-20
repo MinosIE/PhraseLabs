@@ -2,12 +2,15 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import AnswerInput from '@/components/AnswerInput.vue'
 import AnswerFeedback from '@/components/AnswerFeedback.vue'
+import { categories } from '@/data/categories'
+import { phraseById, phrases } from '@/data/phrases'
 import { DAY_MS, dayKey, formatDate } from '@/lib/date'
 import { gradeAnswer, type GradeResult } from '@/lib/grade'
+import { shuffle } from '@/lib/session'
 import { countDueBefore, isMastered } from '@/lib/srs'
 import { speakEn } from '@/lib/speech'
 import { useProgressStore } from '@/stores/progress'
-import { useSessionStore } from '@/stores/session'
+import { useSessionStore, type StartOptions } from '@/stores/session'
 import { useSettingsStore } from '@/stores/settings'
 import type { StudyMode } from '@/types/phrase'
 
@@ -25,6 +28,8 @@ const modalRef = ref<HTMLElement | null>(null)
 const summaryAction = ref<HTMLButtonElement | null>(null)
 const submitting = ref(false)
 const speaking = ref(false)
+// 本题用户实际输入的内容：结果弹框里并排给出「你的答案」，方便自查错在哪
+const submitted = ref('')
 // 本题被用户标记为「我会了」，只影响重练与排期，不影响正确率
 const mastered = ref(false)
 
@@ -72,6 +77,7 @@ const bestComboDay = computed(() =>
 
 const summaryLine = computed(() => {
   if (sessionStore.answeredCount === 0) return '这一轮没有作答，随时可以重新开始。'
+  if (singlePhrase.value) return '这一条已经过了一遍，同类里还有别的可以顺手带走。'
   if (sessionStore.accuracy >= 90) return '这一轮很稳，明天到期的那几条过一遍就够了。'
   if (sessionStore.accuracy >= 70) return '大部分已经拿住，没答对的那几条已经排到下一轮前面。'
   return '错得多不是退步：它们已经被标记出来，下一轮会优先再问你一次。'
@@ -119,6 +125,28 @@ const recordChips = computed(() => {
     },
   ]
 })
+
+/** 答错后追加到队尾的重练题：index 越过开局的计划总数 */
+const isRepeat = computed(
+  () => sessionStore.plannedTotal > 0 && sessionStore.index >= sessionStore.plannedTotal,
+)
+
+/** 单条训练（首页今日一句、词库只练 1 条）：答完就给同类推荐，而不是原地重复 */
+const singlePhrase = computed(() => {
+  const ids = sessionStore.lastOptions.phraseIds
+  if (!ids || ids.length !== 1) return null
+  return phraseById.get(ids[0]) ?? null
+})
+
+const singleCategoryName = computed(() => {
+  const id = singlePhrase.value?.category
+  return categories.find((item) => item.id === id)?.name ?? ''
+})
+
+/** 本轮最后一题：弹框按钮改叫「看本轮结果」，不再误导成还有下一题 */
+const isLastQuestion = computed(
+  () => sessionStore.queue.length > 0 && sessionStore.index >= sessionStore.queue.length - 1,
+)
 
 const hintText = computed(() => {
   const item = current.value
@@ -220,6 +248,7 @@ function submit(value: string): void {
   if (!answer) return
   const { phrase, mode } = current.value
   submitting.value = true
+  submitted.value = answer
   // 先让「判定中」可见，再给出结果，避免点击后看起来没反应
   window.clearTimeout(pendingTimer)
   pendingTimer = window.setTimeout(() => {
@@ -228,8 +257,9 @@ function submit(value: string): void {
     const before = progressStore.stats[dayKey()]?.reviewed ?? 0
     progressStore.recordAnswer(phrase.id, correct)
     sessionStore.record(correct)
-    // TypeWords 式错词循环：答错/接近的题自动排到本轮末尾再练
-    if (!correct) sessionStore.requeueCurrent()
+    // TypeWords 式错词循环：答错/接近的题自动排到本轮末尾再练。
+    // 本轮只有 1 条时不追加——紧接着重刷同一条几乎不涨记忆，交给 Leitner 排期
+    if (!correct && sessionStore.plannedTotal > 1) sessionStore.requeueCurrent()
     const after = progressStore.stats[dayKey()]?.reviewed ?? 0
     if (before < settingsStore.settings.dailyGoal && after >= settingsStore.settings.dailyGoal) {
       goalReached.value = true
@@ -253,6 +283,7 @@ function goNext(): void {
   submitting.value = false
   revealed.value = false
   result.value = null
+  submitted.value = ''
   hintOpen.value = false
   goalReached.value = false
   mastered.value = false
@@ -265,6 +296,7 @@ function skip(): void {
   if (submitting.value) return
   revealed.value = false
   result.value = null
+  submitted.value = ''
   hintOpen.value = false
   goalReached.value = false
   mastered.value = false
@@ -283,17 +315,48 @@ function markMastered(): void {
   mastered.value = true
 }
 
-function restart(): void {
+function restart(options?: StartOptions): void {
   window.clearTimeout(pendingTimer)
   submitting.value = false
   revealed.value = false
   result.value = null
+  submitted.value = ''
   hintOpen.value = false
   goalReached.value = false
   mastered.value = false
-  // 沿用上一轮的范围：从筛选结果或「5 条快练」进来时，再来一轮仍是同一批
-  sessionStore.start(sessionStore.lastOptions)
+  // 默认沿用上一轮的范围；单条训练会显式传入新的同类/随机范围
+  sessionStore.start(options ?? sessionStore.lastOptions)
   inputKey.value = `0-${Date.now()}`
+}
+
+/** 单条练完后的主出口：同分类再推 5 条，比把同一条再刷一遍有用 */
+function startSimilar(): void {
+  const phrase = singlePhrase.value
+  if (!phrase) {
+    restart()
+    return
+  }
+  const ids = shuffle(
+    phrases.filter((item) => item.category === phrase.category && item.id !== phrase.id),
+  )
+    .slice(0, 5)
+    .map((item) => item.id)
+  if (!ids.length) {
+    restart()
+    return
+  }
+  const label = singleCategoryName.value ? `同类 5 条 · ${singleCategoryName.value}` : '同类 5 条'
+  restart({ phraseIds: ids, label })
+}
+
+/** 跳出当前分类：随机抽 5 条，给一个完全不同的起点 */
+function startRandom(): void {
+  restart({
+    phraseIds: shuffle(phrases)
+      .slice(0, 5)
+      .map((item) => item.id),
+    label: '随机 5 条',
+  })
 }
 
 function onGlobalKey(event: KeyboardEvent): void {
@@ -431,7 +494,10 @@ onUnmounted(() => {
 
         <div class="card study-card" :class="{ shake }">
           <div class="study-card-head">
-            <span class="mode-tag">{{ modeLabel[current.mode] }}</span>
+            <div class="mode-tags">
+              <span class="mode-tag">{{ modeLabel[current.mode] }}</span>
+              <span v-if="isRepeat" class="mode-tag repeat-tag">重练</span>
+            </div>
             <button
               v-if="showPromptSpeak"
               class="icon-btn"
@@ -533,12 +599,27 @@ onUnmounted(() => {
       </p>
 
       <div class="hero-actions" style="margin-top: 22px">
-        <button ref="summaryAction" class="btn btn-primary btn-lg" type="button" @click="restart">
-          再来一轮
-        </button>
-        <RouterLink class="btn btn-lg" to="/stats">看统计</RouterLink>
-        <RouterLink class="btn btn-lg" to="/" @click="sessionStore.reset()">回到首页</RouterLink>
+        <template v-if="singlePhrase">
+          <button ref="summaryAction" class="btn btn-primary btn-lg" type="button" @click="startSimilar">
+            再练 5 条同类
+          </button>
+          <button class="btn btn-lg" type="button" @click="startRandom">随机 5 条</button>
+          <RouterLink class="btn btn-lg" to="/stats">看统计</RouterLink>
+          <RouterLink class="btn btn-lg" to="/" @click="sessionStore.reset()">回到首页</RouterLink>
+        </template>
+        <template v-else>
+          <button ref="summaryAction" class="btn btn-primary btn-lg" type="button" @click="restart()">
+            再来一轮
+          </button>
+          <RouterLink class="btn btn-lg" to="/stats">看统计</RouterLink>
+          <RouterLink class="btn btn-lg" to="/" @click="sessionStore.reset()">回到首页</RouterLink>
+        </template>
       </div>
+
+      <p v-if="singlePhrase" class="small muted" style="margin-top: 14px">
+        刚练的是「{{ singlePhrase.en }}」{{ singleCategoryName ? `（${singleCategoryName}）` : '' }}；
+        换成同类或随机范围，不必再把同一条刷一遍。
+      </p>
     </div>
 
     <Teleport to="body">
@@ -558,6 +639,8 @@ onUnmounted(() => {
             :day-reviewed="dayReviewed"
             :daily-goal="settingsStore.settings.dailyGoal"
             :next-review-text="nextReviewText"
+            :your-answer="submitted"
+            :is-last="isLastQuestion"
             :wrong-count="wrongCount"
             :goal-reached="goalReached"
             :speaking="speaking"

@@ -17,6 +17,9 @@ const props = defineProps<{
   dayReviewed: number
   dailyGoal: number
   nextReviewText: string
+  yourAnswer?: string
+  /** 本轮最后一题：按钮文案改成「看本轮结果」，避免以为还有下一题 */
+  isLast?: boolean
   wrongCount: number
   goalReached: boolean
   speaking?: boolean
@@ -52,6 +55,14 @@ const goalPercent = computed(() =>
   Math.min(100, Math.round((props.dayReviewed / props.dailyGoal) * 100)),
 )
 const revealLabel = computed(() => (tone.value === 'correct' ? '刚刚写出' : '正确答案'))
+
+/** 只差几个字符时给个量化提示，比“错了”更有方向感 */
+const distanceHint = computed(() => {
+  if (tone.value !== 'near') return ''
+  const distance = props.result.distance
+  if (!Number.isFinite(distance) || distance <= 0) return ''
+  return `只差 ${distance} 个字符`
+})
 
 let ctx: ReturnType<typeof gsap.context> | undefined
 
@@ -141,6 +152,11 @@ onUnmounted(() => ctx?.revert())
       </div>
       <div class="answer-en">{{ phrase.en }}</div>
       <div class="answer-zh">{{ phrase.zh }}</div>
+      <div v-if="tone !== 'correct' && yourAnswer" class="your-answer">
+        <span class="reveal-label">你的答案</span>
+        <code class="your-answer-text">{{ yourAnswer }}</code>
+        <span v-if="distanceHint" class="your-answer-gap">{{ distanceHint }}</span>
+      </div>
       <p class="feedback-example">{{ phrase.exampleEn }}</p>
     </div>
 
@@ -168,7 +184,9 @@ onUnmounted(() => ctx?.revert())
     <p v-if="phrase.tip" class="tip-line">记法：{{ phrase.tip }}</p>
 
     <div class="feedback-actions">
-      <button class="btn btn-primary" type="button" @click="emit('next')">下一题 ↵</button>
+      <button class="btn btn-primary" type="button" @click="emit('next')">
+        {{ isLast ? '看本轮结果 ↵' : '下一题 ↵' }}
+      </button>
       <button
         v-if="tone !== 'correct' && !mastered"
         class="btn"

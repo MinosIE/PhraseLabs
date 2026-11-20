@@ -1197,6 +1197,20 @@ h3 {
   color: var(--ink-2);
 }
 
+.mode-tags {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* 答错排到队尾重练的题：明确告知这是第二次机会 */
+.repeat-tag {
+  border-color: var(--gold);
+  background: var(--gold-soft);
+  color: var(--gold);
+}
+
 .prompt {
   margin: 20px 0 8px;
   font-family: var(--font-display);
@@ -1265,6 +1279,38 @@ h3 {
   min-width: 92px;
 }
 
+/* 输入框内的一键清空：只改错字时不用逐字删 */
+.input-clear {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.16s, color 0.16s;
+}
+
+.input-clear:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.input-clear:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.input-clear:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
 .answer-field.is-blank {
   border-color: var(--red);
   animation: shake 0.3s cubic-bezier(0.2, 0, 0, 1);
@@ -1301,6 +1347,18 @@ h3 {
   .icon-btn {
     width: 44px;
     height: 44px;
+  }
+
+  /* 触屏上把清空按钮放大到好点的尺寸，输入框右侧留出余地 */
+  .input-clear,
+  .search-clear {
+    width: 36px;
+    height: 36px;
+    font-size: 15px;
+  }
+
+  .search-box input {
+    padding-right: 48px;
   }
 }
 
@@ -1452,6 +1510,30 @@ kbd {
   margin-top: 6px;
   font-size: 15px;
   color: var(--ink-2);
+}
+
+/* 错答时并排给出用户输入，方便对照自己错在哪 */
+.your-answer {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.your-answer-text {
+  padding: 2px 8px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--ink-2);
+  font: 500 14px/1.6 var(--font-mono);
+  overflow-wrap: anywhere;
+}
+
+.your-answer-gap {
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .feedback-example {
@@ -1658,6 +1740,48 @@ kbd {
 
 .field input[type='range'] {
   accent-color: var(--accent);
+}
+
+/* 搜索：清空按钮内嵌在输入框右侧 */
+.search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-box input {
+  width: 100%;
+  padding-right: 40px;
+}
+
+.search-clear {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.16s, color 0.16s;
+}
+
+.search-clear:hover {
+  background: var(--line);
+  color: var(--ink);
+}
+
+.search-clear:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .select-field {

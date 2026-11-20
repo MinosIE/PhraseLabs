@@ -74,6 +74,13 @@ function onKeydown(event: KeyboardEvent): void {
   }
 }
 
+/** 一键清空已输入内容：改错时不用逐字删 */
+function clearText(): void {
+  text.value = ''
+  blank.value = false
+  focus()
+}
+
 defineExpose({ focus })
 </script>
 
@@ -99,6 +106,16 @@ defineExpose({ focus })
         @compositionstart="composing = true"
         @compositionend="composing = false"
       />
+      <button
+        v-if="text"
+        class="input-clear"
+        type="button"
+        aria-label="清空输入"
+        :disabled="disabled"
+        @click="clearText"
+      >
+        ✕
+      </button>
       <button
         class="btn btn-primary btn-sm answer-submit"
         type="button"

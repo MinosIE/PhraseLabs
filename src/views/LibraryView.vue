@@ -113,7 +113,16 @@ const hasFilter = computed(
     sort.value !== 'default',
 )
 
-function clearFilters(): void {
+const searchInput = ref<HTMLInputElement | null>(null)
+
+/** 只清搜索词；分类/难度/状态/排序各自都有「全部」选项，不必再放一个页面级清空 */
+function clearQuery(): void {
+  query.value = ''
+  searchInput.value?.focus()
+}
+
+/** 无结果时的兼底：一键把搜索与筛选全部退回默认 */
+function resetFilters(): void {
   query.value = ''
   activeCategory.value = ''
   activeLevel.value = ''
@@ -171,7 +180,7 @@ function onSort(value: string | number): void {
         <h1 style="font-size: 36px; margin-top: 10px">词库</h1>
       </div>
       <div class="library-head-actions">
-        <span class="small muted">{{ filtered.length }} 条结果</span>
+        <span class="small muted" role="status" aria-live="polite">{{ filtered.length }} 条结果</span>
         <button
           v-if="hasFilter"
           class="btn btn-sm btn-primary"
@@ -185,13 +194,33 @@ function onSort(value: string | number): void {
     </div>
 
     <div class="toolbar">
-      <label class="field">
+      <label class="field search-field">
         搜索
-        <input v-model="query" type="text" placeholder="英文、中文或标签…" />
+        <span class="search-box">
+          <input
+            ref="searchInput"
+            v-model="query"
+            type="text"
+            placeholder="英文、中文或标签…"
+            enterkeyhint="search"
+            autocomplete="off"
+            spellcheck="false"
+            @keydown.esc="clearQuery"
+          />
+          <button
+            v-if="query"
+            class="search-clear"
+            type="button"
+            aria-label="清空搜索"
+            title="清空搜索（Esc）"
+            @click="clearQuery"
+          >
+            ✕
+          </button>
+        </span>
       </label>
       <SelectField label="难度" :model-value="activeLevel" :options="levelOptions" @update:model-value="onLevel" />
       <SelectField label="排序" :model-value="sort" :options="sortOptions" @update:model-value="onSort" />
-      <button v-if="hasFilter" class="btn btn-sm" type="button" @click="clearFilters">清空筛选</button>
     </div>
 
     <div class="chip-row">
@@ -225,7 +254,7 @@ function onSort(value: string | number): void {
 
     <div class="card" style="margin-top: 24px; padding: 0; overflow: hidden">
       <div v-if="filtered.length === 0" class="empty-state">
-        没有符合条件的短语。<button class="hint-link" type="button" @click="clearFilters">清空筛选</button>
+        没有符合条件的短语。<button class="hint-link" type="button" @click="resetFilters">清空筛选</button>
       </div>
       <div v-for="phrase in visible" :key="phrase.id" class="phrase-item">
         <div class="phrase-main">
