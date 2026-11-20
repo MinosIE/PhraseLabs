@@ -1,5 +1,61 @@
 # QA 验证记录
 
+## 2026-11-20 · 首页宣传化与产品演示区（ui-studio / gsap-core）
+
+依据 `creative-mode.md` §1/§5、`motion-decisions.md` §1/§4/§6/§7 与 `gsap-core` 的 `matchMedia()` 纪律。设计论点：沿用暖纸 + 衬线 + 陶土橙走 editorial 方向；**核心亮点是真实数据驱动的答题演示区**（深色舞台 + 浅色产品卡），首屏短语视差与横向短语带退为辅助纹理；首尾各一块深色反色区形成节奏。所有训练入口原样保留。
+
+### 视觉复核发现并修复的真实缺陷
+
+| Severity | 现象 | 根因 | 修复 |
+|---|---|---|---|
+| high | 首屏只剩巨大淡短语，主标题与按钮看不见 | `gsap.from` 用 `autoAlpha:0` 设了 `visibility:hidden`，headless 截图时 rAF 未推进动画；对 SSG 首屏也是渐进增强隐患 | 首屏与区块入场一律改为纯 `y` 位移 + `clearProps:'transform'`，不碰 `autoAlpha`；预渲染内容始终可见 |
+| high | 视差短语喧宾夺主，看不出宣传感 | 6 条 72px 短语铺满首屏，opacity 0.055 仍压过正文 | 收敛为 3 条 28–52px、opacity 0.035，移到边缘；标题放大到 44–78px |
+| high | 没有任何产品画面，宣传亮点缺失 | 上一轮只有装饰与文字卡 | 新增演示区：用 `a little bit` 的真实 `zh` / `en` / `exampleEn` 展示「提示 → 输入 → 判定 → 下次见面」闭环 |
+| medium | 结尾收口平淡 | 结尾 CTA 是浅色卡片，与中段同质感 | 改为深色反色块，与演示区首尾呼应 |
+
+### 浏览器验证（本机 Chrome headless 截图）
+
+- 1440×3300 全页截图复核：首屏主标题、三个入口按钮、今日卡、今日一句、数据条、演示区、三步循环、题型卡、分类网格、结尾深色 CTA 均可见且层级清晰。
+- 演示区深色舞台上的中文提示、输入行、绿色「答对了」反馈与「记忆状态 / 下次见面」页脚完整渲染，无溢出。
+- 首屏短语纹理已退到边缘，不再遮挡标题；深色结尾 CTA 与演示区形成首尾呼应。
+- 未覆盖：滚动过程中的视差手感、移动端真机换行与 `prefers-reduced-motion` 终态仍需真机回归。
+
+### 动效决策
+
+| 动效 | 频率 / 理由 | 实现 | 纪律依据 |
+|---|---|---|---|
+| 首屏文案入场 | 1 次 / 品牌 moment | `y:16 + autoAlpha:0`，0.5s，`power2.out`，stagger 0.06 | §1 允许 600ms、§6 禁 `scale(0)` |
+| 首屏短语视差 | 滚动同步 / 空间纵深 | 6 条真实短语不同 `y`/`x`，`scrub:true` + `ease:'none'`（1:1 跟输入） | §3 滚动无固定时长、§4 滚动禁缓动 |
+| 今日卡 / 短语带 | 同上 | 卡片 `y:-26`、短语带 `xPercent:-12`，与背景反向分层 | 只动 transform，§8 |
+| 区块标题 reveal | 每屏 1 次 / 防止突变 | `y:18 + autoAlpha:0`，0.45s，`once:true` | §2 防止 jarring changes |
+| 移动端 | 前庭负荷 | `isDesktop` 守卫：关闭大幅位移，只保留入场淡入 | §7 分层降级 |
+| `prefers-reduced-motion` | 无障碍 | `conditions.reduceMotion` 为真直接 return，元素保持静态终态 | §7 大位移优先砍 |
+
+- 入场起点未用 `scale(0)`；全页无 back/elastic/bounce 回弹；无裸 `ease`。
+- 视差层 6 条短语同为“运动元素”，但 `opacity:0.055` 且 `aria-hidden`，属背景纹理而非注意力竞争，按 §6 的 1/3 预算人工放行。
+- `will-change: transform` 只加在 `.ambient-phrase` 与 `.ribbon-track`；`mm.revert()` 在卸载时统一清理。
+
+### 自动化
+
+- `pnpm check:content`（`pnpm test` 前置）：11 类 / 703 条通过。
+- `pnpm test`：46/46 通过；`pnpm typecheck`：通过。
+- `pnpm build`：`vue-tsc -b && vite-ssg build && postbuild` 全通过，预渲染 13 页。ScrollTrigger 被拆为独立 chunk（gzip 17.57 kB），仅在浏览器侧加载。
+- 预渲染产物抽查：`dist/index.html` 含 `landing-hero` 1、`ambient-phrase` 6、`loop-step` 3、`landing-cta` 1；训练入口「开始今日训练」「浏览词库」各 2 处，「按题型开练」「按场景找短语」「练这一条」各 1 处。
+- IDE lint 诊断：无新增错误。
+
+### 对比度
+
+新区块全部复用已验证 token：`--muted` / `--accent` / `--line` / `--surface`（上轮 21 组实测均 ≥4.5:1）。装饰短语为 `aria-hidden` 背景纹理，`opacity:0.055` 不适用正文对比阈值，且颜色取 `var(--ink)` 使深浅主题自动反向。
+
+### 已考虑但拒绝
+
+| 被拒方案 | 理由 |
+|---|---|
+| CSS `background-attachment: fixed` 做视差 | 移动端支持差，且无法让 6 条短语以不同速度分层 |
+| 顶层静态导入 ScrollTrigger | SSG 构建期 Node 环境无 `window`，已实测报错；改为 `onMounted` 动态导入 |
+| 引入第三方视差库 | 项目已有 GSAP core，ScrollTrigger 随包提供，无新增依赖必要 |
+| 给装饰短语写死 `rgba()` 色值 | 破坏 token 唯一出处且深色模式会失效；改用 `var(--ink)` + opacity |
+
 ## 2026-11-19 · 配色系统审查（ui-studio）
 
 依据 `discipline-mode.md` §1/§2/§4、`dark-mode.md` §1–4/§8、`craft-floor.md` §3，对 `style.css` 全套 token 与反色用法做一轮有界审查。

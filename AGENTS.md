@@ -231,6 +231,8 @@ Vitest，唯一测试文件 `src/lib/__tests__/core.test.ts`，当前 46 项。�
 | 首页点分类后长期设置被改 | 直接写 `settings.categories` | 用 `session.start({ categories, label })`，只影响本轮 |
 | 反色卡片辅助文字看不清 | 把为浅底定义的 `--muted` / `--accent` 复用到 `--ink` 反色底，实测仅 2.43–3.75:1 | 用 `--on-ink-muted` / `--on-ink-accent` 双主题 token；进度条填充同理 |
 | 首页模板区块莫名少一层容器 | 用 SearchReplace 只匹配到开标签、替换文本以 `</section>` 结尾，把包裹元素吃掉了 | 改模板时把「整段区块」作为 `original_text`（含开合标签），改完 `pnpm build` 看预渲染页是否仍含「今日一句」等区块 |
+| SSG 构建期 ScrollTrigger 报 `window is not defined` | 顶层 `import { ScrollTrigger } from 'gsap/ScrollTrigger'` 会在预渲染的 Node 环境执行 | 只在 `onMounted` 内动态 `import()` 并 `registerPlugin`，配合 `disposed` 标志与 `mm.revert()`；GSAP core 可顶层导入 |
+| 首屏标题和按钮在截图里消失 | `gsap.from` 的 `autoAlpha:0` 会设 `visibility:hidden`，动画未推进时预渲染内容不可用 | 首屏与区块入场只用 `y` 位移 + `clearProps:'transform'`，不碰 `autoAlpha`；改完用 Chrome headless 截图复核 |
 | 分类页文案像批量生成的 | 给 11 类写同一个句式模板，只换名词 | 每类举 2–3 条**本类真实条目**并说清难点；`core.test.ts` 断言 intro/scenario 互不重复 |
 | 「改判答对」留下两套账 | 翻案同时改本轮正确率与 SRS：答错降 2 级、答对只升 1 级，box 回不到原值，`wrong` 还永久 +1 | 判定不可推翻；只提供「这条我会了」抬高盒子 + 撤回重练，统计学口径保持不变 |
 | 刷新恢复的已完成草稿没进历史最高连对 | 逐题 `record()` 才写历史记录，草稿恢复后不再逐题触发；结算页也没补写 | 结算入口统一调 `session.syncBestCombo()`（`onMounted` 的已 finished 分支 + `watch(finished)`），它只增不减且幂等 |
@@ -276,7 +278,7 @@ Vitest，唯一测试文件 `src/lib/__tests__/core.test.ts`，当前 46 项。�
 
 ### 5.1 已完成模块
 
-五种模式中的三种具体题型 + 混合、Leitner 复习、统计页、词库筛选、导入导出、主题、严格度、收藏、音色按设备能力显隐的手动朗读、加载态、自定义下拉、判定弹框与逐题对错、本轮结算页与历史最高连对（跨会话只增不减、随备份往返）、11 类 703 条短语（已完成跨分类去重，全库 `en` 唯一；补齐过高频口语/习语/短语动词，后又新增 26 条影视高频台词、14 条电影常见习语、24 条叠词习语；全部 `exampleEn` 均含可挖空形式）；词库分批渲染与「练这 N 条」、统计页「最该复习的 5 条」、本轮草稿刷新恢复、弹框内朗读与背景 `inert`；UI 动效与配色已按 ui-studio 做有界精修与对比度验证（见 `QA.md`）；SEO/GEO 与 SSG 已落地 P0–P3（history 路由、旧 hash 重定向、build 期预渲染 13 页、分类落地页、canonical/OG/JSON-LD、robots/sitemap/llms.txt；11 类专属文案 + 练习建议 + 场景 + FAQ 及按页 `BreadcrumbList`/`CollectionPage`/`DefinedTermSet`/`FAQPage`；首页「今日一句」与分类页「5 条快练」；触屏 44px 可点区域，见 `docs/SEO.md`）。
+五种模式中的三种具体题型 + 混合、Leitner 复习、统计页、词库筛选、导入导出、主题、严格度、收藏、音色按设备能力显隐的手动朗读、加载态、自定义下拉、判定弹框与逐题对错、本轮结算页与历史最高连对（跨会话只增不减、随备份往返）、11 类 703 条短语（已完成跨分类去重，全库 `en` 唯一；补齐过高频口语/习语/短语动词，后又新增 26 条影视高频台词、14 条电影常见习语、24 条叠词习语；全部 `exampleEn` 均含可挖空形式）；词库分批渲染与「练这 N 条」、统计页「最该复习的 5 条」、本轮草稿刷新恢复、弹框内朗读与背景 `inert`；UI 动效与配色已按 ui-studio 做有界精修与对比度验证（见 `QA.md`）；SEO/GEO 与 SSG 已落地 P0–P3（history 路由、旧 hash 重定向、build 期预渲染 13 页、分类落地页、canonical/OG/JSON-LD、robots/sitemap/llms.txt；11 类专属文案 + 练习建议 + 场景 + FAQ 及按页 `BreadcrumbList`/`CollectionPage`/`DefinedTermSet`/`FAQPage`；首页「今日一句」与分类页「5 条快练」；触屏 44px 可点区域，见 `docs/SEO.md`）；首页已宣传化（真实短语视差层、**真实数据驱动的产品演示区**、三步循环与深色结尾 CTA，训练入口与预渲染正文不变，已做 Chrome 截图复核，见 `QA.md`）。
 
 ### 5.2 开发中的模块
 
@@ -317,3 +319,4 @@ Vitest，唯一测试文件 `src/lib/__tests__/core.test.ts`，当前 46 项。�
 - 2026-11-20：实施 SEO P3。新增 `data/categoryContent.ts`（11 类 intro/scenario/tips/faq，`Record<CategoryId, ...>` 强制齐全）与 `lib/daily.ts`（FNV-1a 日期哈希）；`App.vue` 用 `buildStructuredData()` 按页输出 `BreadcrumbList`/`CollectionPage`/`DefinedTermSet`/`FAQPage`（必须是函数声明，`const` 会因 `useHead` 同步求值撞 TDZ）；`HomeView` 加「今日一句」，`CategoryView` 加双卡说明、FAQ 与「5 条快练」；`llms.txt` 增判定规则与数据隐私分节；`style.css` 补每日一句/分类说明/FAQ 样式，并把触屏 `.btn`/`.chip`/`.hint-link`/`.icon-btn` 抬到 44px。测试 36 → 40 项。
 - 2026-11-20：新增本轮结算页与历史最高连对。`StudyView` 答完最后一题停在结算页（作答题数/正确率/本轮最高连对含「新纪录」徽标/明天到期 + 页脚新掌握·提示次数·历史纪录日期）；`session` 新增 `masteredAtStart`、`recordBeaten`、`syncBestCombo()`、`lastOptions`；`progress` 新增 `bestCombo` 与 `noteCombo()`；存储新增 `phraselabs:v1:best-combo` 与 `normalizeBestCombo`，`exportData` 增第 4 参数、`importData` 归一（旧备份缺字段归零），`AppData.bestCombo?` 保持 `version: 1` 不变；`srs.countDueBefore()` 供「明天到期」。浏览器实测两处真实缺陷：恢复的已完成草稿不补记历史最高、挂载即结束时不 focus，均已修。测试 40 → 46 项。
 - 2026-11-20：首页改版。今日卡补连续/已掌握/累计作答与「待复习 N 条」直达入口（`startDue` 只算学过的到期条，一次最多每日目标题量，按到期先后取）；`stat-strip` 改为站点事实（703 条 / 11 类 / 4 题型 / 0 次注册）；新增「为什么是「短语 + 键盘」」四卡；11 个分类从两列大卡片收成四列紧凑网格（保留全部内链与条数）；题型卡 3 列改 4 列；标题与数据全部来自 `phrases`/`categories`，未新增契约。踩坑：旧 preview 进程占着 4173 并让浏览器命中旧页面，截图核对 h2 文本才能发现。
+- 2026-11-20：首页宣传化。`HomeView` 加真实短语视差层、滚动短语带、**真实数据驱动的产品演示区**、三步循环与深色结尾 CTA，全部训练入口原样保留；`style.css` 复用语义 token 补对应样式与响应式。动效走 `gsap.matchMedia()`：桌面做视差、移动端只做入场淡入、`prefers-reduced-motion` 直接到位；ScrollTrigger 在 `onMounted` 动态导入并 `mm.revert()` 清理，避免 SSG 构建期访问 `window`。踩坑：入场动画用 `autoAlpha:0` 会把 SSG 首屏主标题与按钮设成 `visibility:hidden`（Chrome 截图复核发现），改为纯 `y` 位移 + `clearProps`；6 条 72px 视差短语喧宾夺主，收敛为 3 条小字退到边缘。已用本机 Chrome headless 做全页截图复核，并同步 `docs/PRODUCT.md`、`docs/SEO.md`、`docs/ARCHITECTURE.md`、`QA.md`。
