@@ -34,7 +34,7 @@
 
 | 路由 | 页面 | 处理 | `robots` |
 | --- | --- | --- | --- |
-| `/` | 首页：定位、模式与分类入口 | 预渲染 | index, follow |
+| `/` | 首页：定位、站点特色（四条）与训练入口（今日训练 / 5 条快练 / 到期复习 / 按题型）+ 分类网格 | 预渲染 | index, follow |
 | `/library` | 词库（筛选 + 搜索） | 预渲染 | index, follow |
 | `/phrases/:category` | 分类落地页（11 个，一条动态路由） | 预渲染 | index, follow |
 | `/study` | 答题界面 | 不预渲染，404.html + 客户端路由兜底 | noindex, follow |

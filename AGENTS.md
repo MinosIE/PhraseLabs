@@ -17,7 +17,7 @@
 
 - 训练单位是**短语**，不是孤立单词；`StudyMode` 仅有 `zh-en` / `en-zh` / `cloze` 三种，`mixed` 只在生成队列时解析。
 - 已明确移除：跟写模式（`shadow`）、听写模式（`dictation`）、`autoSpeak` 设置。**不要重新引入**。
-- 用户旅程：首页选模式/分类 → 学习页输入 → 弹框判定反馈 → 错词进本轮队尾重练 → 答完最后一题停在结算页（正确率 / 本轮最高连对 / 明天到期）→ 统计页看掌握度。全程键盘可达，无需登录。
+- 用户旅程：首页看定位与训练入口（今日训练 / 5 条快练 / 到期复习 / 按题型）→ 学习页输入 → 弹框判定反馈 → 错词进本轮队尾重练 → 答完最后一题停在结算页（正确率 / 本轮最高连对 / 明天到期）→ 统计页看掌握度。全程键盘可达，无需登录。
 
 ### 1.2 整体架构
 
@@ -29,7 +29,7 @@ src/
   App.vue               外壳：导航 / 主题 data-theme / skip-link / RouterView / useHead（SEO）
   router/index.ts       只导出 routes 路由表（不 createRouter）：6 条路由 + 通配重定向
   views/                页面与交互
-    HomeView.vue         模式/分类入口（分类卡片链到分类页）、今日进度、今日一句
+    HomeView.vue         首屏定位 + 今日训练/5 条快练、今日卡（进度/连续/已掌握/到期复习）、站点数据条、四种题型入口、四条特色、紧凑分类网格
     StudyView.vue        ★答题主流程：队列、输入、判定、弹框、快捷键、草稿恢复、结算页（4 指标 + 再来一轮）
     LibraryView.vue      词库搜索/筛选/收藏/朗读/分批渲染/一键开练
     CategoryView.vue     分类落地页：专属介绍/建议/场景/FAQ、面包屑、分类互链、全部词条、5 条快练与练这一类
@@ -316,4 +316,4 @@ Vitest，唯一测试文件 `src/lib/__tests__/core.test.ts`，当前 46 项。�
 - 2026-11-20：实施 SEO P0–P2。接入 `vite-ssg@28` + `@unhead/vue@2.1.17`，路由改 history 并新增 `/phrases/:category` 分类落地页；新增 `lib/seo.ts`、`CategoryView.vue`、`scripts/postbuild.mjs`（404.html / sitemap.xml / llms.txt / 产物校验）、`public/robots.txt` 与 `public/og.png`；`build` 改为 `vue-tsc -b && vite-ssg build && node scripts/postbuild.mjs`。踩坑：`router/index.ts` 里 `createRouter(createWebHistory())` 会在构建期报 `window is not defined`，现只导出 `routes`，实例由 vite-ssg 创建；`vite-ssg@28` 的 `includedRoutes` 属于 `vite.config.ts` 的 `ssgOptions`，不在路由参数里。测试 29 → 36 项（新增旧 hash 映射、canonical、路由 robots、分类计数一致性）。
 - 2026-11-20：实施 SEO P3。新增 `data/categoryContent.ts`（11 类 intro/scenario/tips/faq，`Record<CategoryId, ...>` 强制齐全）与 `lib/daily.ts`（FNV-1a 日期哈希）；`App.vue` 用 `buildStructuredData()` 按页输出 `BreadcrumbList`/`CollectionPage`/`DefinedTermSet`/`FAQPage`（必须是函数声明，`const` 会因 `useHead` 同步求值撞 TDZ）；`HomeView` 加「今日一句」，`CategoryView` 加双卡说明、FAQ 与「5 条快练」；`llms.txt` 增判定规则与数据隐私分节；`style.css` 补每日一句/分类说明/FAQ 样式，并把触屏 `.btn`/`.chip`/`.hint-link`/`.icon-btn` 抬到 44px。测试 36 → 40 项。
 - 2026-11-20：新增本轮结算页与历史最高连对。`StudyView` 答完最后一题停在结算页（作答题数/正确率/本轮最高连对含「新纪录」徽标/明天到期 + 页脚新掌握·提示次数·历史纪录日期）；`session` 新增 `masteredAtStart`、`recordBeaten`、`syncBestCombo()`、`lastOptions`；`progress` 新增 `bestCombo` 与 `noteCombo()`；存储新增 `phraselabs:v1:best-combo` 与 `normalizeBestCombo`，`exportData` 增第 4 参数、`importData` 归一（旧备份缺字段归零），`AppData.bestCombo?` 保持 `version: 1` 不变；`srs.countDueBefore()` 供「明天到期」。浏览器实测两处真实缺陷：恢复的已完成草稿不补记历史最高、挂载即结束时不 focus，均已修。测试 40 → 46 项。
-- 2026-11-20：新增内容校验脚本 `scripts/validate-phrases.mjs`。借 Vite 的 SSR 加载器直接 import TS 数据（不写正则解析），校验 `id`/`en` 唯一、`en` 含空格或连字符、`aliases` ≥2 汉字、`exampleEn` 可挖空、分类计数与 README/PRODUCT 数字；挂在 `pretest`，`pnpm test` 与 CI 自动执行，失败时退出码 1 阻止测试。同步 CONTRIBUTING/README/PRODUCT/ARCHITECTURE。测试仍为 46 项。
+- 2026-11-20：首页改版。今日卡补连续/已掌握/累计作答与「待复习 N 条」直达入口（`startDue` 只算学过的到期条，一次最多每日目标题量，按到期先后取）；`stat-strip` 改为站点事实（703 条 / 11 类 / 4 题型 / 0 次注册）；新增「为什么是「短语 + 键盘」」四卡；11 个分类从两列大卡片收成四列紧凑网格（保留全部内链与条数）；题型卡 3 列改 4 列；标题与数据全部来自 `phrases`/`categories`，未新增契约。踩坑：旧 preview 进程占着 4173 并让浏览器命中旧页面，截图核对 h2 文本才能发现。
