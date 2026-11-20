@@ -133,6 +133,43 @@ async function checkDocs(total, categoryCount, problems) {
   }
 }
 
+/** 软指标：只输出不判定，帮助发现「内容偏斜」（难度堆在一级、别名过短、例句过短、秘诀覆盖率低） */
+function reportMetrics({ phrases, categories, normalizeChinese }) {
+  const levels = new Map()
+  let aliasChars = 0
+  let aliasCount = 0
+  let exampleWords = 0
+  let withTip = 0
+
+  for (const phrase of phrases) {
+    levels.set(phrase.level, (levels.get(phrase.level) ?? 0) + 1)
+    for (const alias of phrase.aliases ?? []) {
+      aliasChars += normalizeChinese(alias).length
+      aliasCount += 1
+    }
+    exampleWords += (phrase.exampleEn ?? '').trim().split(/\s+/).filter(Boolean).length
+    if (phrase.tip?.trim()) withTip += 1
+  }
+
+  const total = phrases.length || 1
+  const levelText = [1, 2, 3, 4, 5]
+    .map((level) => {
+      const count = levels.get(level) ?? 0
+      return `L${level} ${count}（${Math.round((count / total) * 100)}%）`
+    })
+    .join(' / ')
+  const categoryText = categories
+    .map((category) => `${category.name} ${phrases.filter((p) => p.category === category.id).length}`)
+    .join(' / ')
+
+  console.log('[check:content] 软指标（仅供参考，不影响退出码）')
+  console.log(`  - 难度分布：${levelText}`)
+  console.log(`  - 分类分布：${categoryText}`)
+  console.log(`  - 别名平均字数：${(aliasChars / (aliasCount || 1)).toFixed(1)}`)
+  console.log(`  - 例句平均词数：${(exampleWords / total).toFixed(1)}`)
+  console.log(`  - 要点（tip）覆盖率：${Math.round((withTip / total) * 100)}%`)
+}
+
 async function main() {
   const data = await loadData()
   const problems = validatePhrases(data)
@@ -145,12 +182,14 @@ async function main() {
       console.error(`  … 其余 ${problems.length - PROBLEM_LIMIT} 个已省略`)
     }
     process.exitCode = 1
-    return
+  } else {
+    console.log(
+      `[check:content] ${data.categories.length} 个分类 / ${data.phrases.length} 条短语，全部通过`,
+    )
   }
 
-  console.log(
-    `[check:content] ${data.categories.length} 个分类 / ${data.phrases.length} 条短语，全部通过`,
-  )
+  // 软指标只做可见性提醒：异常不改变退出码，避免阻塞内容贡献
+  reportMetrics(data)
 }
 
 main().catch((error) => {
