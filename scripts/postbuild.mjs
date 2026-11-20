@@ -127,7 +127,7 @@ async function writeLlmsTxt(siteUrl, categories, counts) {
     '',
     '## 数据与隐私',
     '',
-    '- 无账号、无后端、无第三方统计；进度、统计与设置只存在当前浏览器的 localStorage（前缀 `phraselabs:v1:`）。',
+    '- 无账号、无后端；页面访问量用百度统计（匿名 PV），不收集学习内容；进度、统计与设置只存在当前浏览器的 localStorage（前缀 `phraselabs:v1:`）。',
     '- 设置页支持导出 / 导入 JSON 备份；清空浏览器数据会一并丢弃进度。',
     '- 朗读通过浏览器 Web Speech API 完成，不向外部服务发送文本；可用与否取决于浏览器与系统。',
     '',

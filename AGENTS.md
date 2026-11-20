@@ -21,7 +21,7 @@
 
 ### 1.2 整体架构
 
-依赖方向单向：`views → stores → lib → types/data`。`lib` 不依赖 Vue，便于单测。无运行时网络请求，内容打包进 bundle。
+依赖方向单向：`views → stores → lib → types/data`。`lib` 不依赖 Vue，便于单测。运行时唯一的第三方请求是 `index.html` 里的百度统计脚本（匿名 PV），应用自身无网络请求，内容打包进 bundle。
 
 ```text
 src/
