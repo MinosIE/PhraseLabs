@@ -2,14 +2,26 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta
-      name="description"
-      content="PhraseLabs：免费、纯前端的英语短语键盘训练工具，打开即学，进度保存在本地。"
-    />
     <meta name="theme-color" content="#b8481f" />
-    <title>PhraseLabs · 英语短语键盘训练</title>
+    <script>
+      // 首屏绘制前按本地设置与系统偏好定好主题，避免深色模式闪白。
+      // 标题、描述、canonical、OG 与结构化数据由 App.vue 的 useHead 在构建期写入。
+      ;(function () {
+        var theme = 'system'
+        try {
+          var raw = localStorage.getItem('phraselabs:v1:settings')
+          if (raw) theme = JSON.parse(raw).theme || 'system'
+        } catch (error) {
+          theme = 'system'
+        }
+        var dark =
+          theme === 'dark' ||
+          (theme !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+        document.documentElement.dataset.theme = dark ? 'dark' : 'light'
+      })()
+    </script>
   </head>
   <body>
     <div id="app"></div>

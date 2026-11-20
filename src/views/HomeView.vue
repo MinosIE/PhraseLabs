@@ -1,14 +1,16 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { categories, categoryName } from '@/data/categories'
+import { categories } from '@/data/categories'
 import { phraseCountByCategory, phrases } from '@/data/phrases'
+import { pickDaily } from '@/lib/daily'
 import { dayKey } from '@/lib/date'
+import { speakEn } from '@/lib/speech'
 import { computeStreak, isMastered } from '@/lib/srs'
 import { useProgressStore } from '@/stores/progress'
 import { useSessionStore } from '@/stores/session'
 import { useSettingsStore } from '@/stores/settings'
-import type { CategoryId, ModeSetting } from '@/types/phrase'
+import type { ModeSetting } from '@/types/phrase'
 
 const router = useRouter()
 const progressStore = useProgressStore()
@@ -55,15 +57,30 @@ function resume(): void {
   void router.push('/study')
 }
 
-/** 分类入口只影响本轮，不写入设置里的长期分类 */
-function startCategory(id: CategoryId): void {
-  sessionStore.start({ categories: [id], label: `分类 · ${categoryName(id)}` })
-  void router.push('/study')
-}
-
+/** 全部分类开练；单分类入口现在进入分类落地页，在那里开练 */
 function startAll(): void {
   sessionStore.start()
   void router.push('/study')
+}
+
+/** 今日一句：同一天内稳定，跨天自动换，目的是让访客先看到“一句真能用的话” */
+const daily = computed(() => pickDaily(phrases, dayKey()))
+const speaking = ref(false)
+
+function practiseDaily(): void {
+  if (!daily.value) return
+  sessionStore.startWith([daily.value.id], '今日一句')
+  void router.push('/study')
+}
+
+function speakDaily(): void {
+  if (!daily.value || speaking.value) return
+  speaking.value = true
+  void speakEn(daily.value.en, settingsStore.settings.voiceURI)
+    .catch(() => undefined)
+    .finally(() => {
+      speaking.value = false
+    })
 }
 </script>
 
@@ -100,6 +117,40 @@ function startAll(): void {
           今日新学 {{ today.learned }} 条 · 答对 {{ today.correct }} 题
         </p>
       </aside>
+    </section>
+
+    <section v-if="daily" class="section daily-section" aria-labelledby="daily-heading">
+      <div class="section-head">
+        <div>
+          <div class="eyebrow">Today / 今日一句</div>
+          <h2 id="daily-heading" style="margin-top: 8px">今天带走一句，晚上就能用</h2>
+        </div>
+        <RouterLink class="small muted" :to="`/phrases/${daily.category}`">
+          看它属于哪一类 ↗
+        </RouterLink>
+      </div>
+      <article class="card daily-card">
+        <div class="phrase-main daily-text">
+          <span class="phrase-en">{{ daily.en }}</span>
+          <div class="phrase-zh">{{ daily.zh }}</div>
+          <div class="phrase-example">{{ daily.exampleEn }} — {{ daily.exampleZh }}</div>
+        </div>
+        <div class="daily-actions">
+          <button class="btn btn-primary" type="button" @click="practiseDaily">
+            练这一条
+          </button>
+          <button
+            v-if="settingsStore.voiceAvailable"
+            class="btn"
+            type="button"
+            :disabled="speaking"
+            @click="speakDaily"
+          >
+            <span v-if="speaking" class="spinner" aria-hidden="true"></span>
+            {{ speaking ? '朗读中…' : '听一遍' }}
+          </button>
+        </div>
+      </article>
     </section>
 
     <section class="stat-strip" aria-label="学习概览">
@@ -148,7 +199,7 @@ function startAll(): void {
         <RouterLink class="small muted" to="/settings">长期分类设置 ↗</RouterLink>
       </div>
       <p class="small muted" style="margin-bottom: 14px">
-        点击分类只会按该分类开始这一轮，不会改动设置里的长期分类。
+        点开分类可以查看该类的全部词条与例句，并在分类页直接开练；不会改动设置里的长期分类。
       </p>
       <div class="chip-row" style="margin-bottom: 18px">
         <button class="chip" type="button" @click="startAll">
@@ -156,17 +207,16 @@ function startAll(): void {
         </button>
       </div>
       <div class="grid grid-2">
-        <button
+        <RouterLink
           v-for="category in categories"
           :key="category.id"
-          type="button"
           class="option-card"
-          @click="startCategory(category.id)"
+          :to="`/phrases/${category.id}`"
         >
           <strong>{{ category.icon }} {{ category.name }}<span class="mode-arrow">↗</span></strong>
           <span>{{ category.description }}</span>
           <span class="category-count">{{ phraseCountByCategory[category.id] ?? 0 }} 条短语</span>
-        </button>
+        </RouterLink>
       </div>
     </section>
   </div>
