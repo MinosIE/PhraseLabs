@@ -1,18 +1,25 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
-import { phrases, phraseById } from '@/data/phrases'
+import { createMemoryHistory, createRouter } from 'vue-router'
+import { phrases, phraseById, phraseCountByCategory } from '@/data/phrases'
+import { categories } from '@/data/categories'
+import { categoryContent, contentOf } from '@/data/categoryContent'
+import { hashDay, pickDaily } from '@/lib/daily'
+import { canonicalUrl, legacyHashTarget, OG_IMAGE, SITE_URL } from '@/lib/seo'
+import { routes } from '@/router'
 import {
   feedbackEncouragement,
   feedbackHeadline,
   feedbackSubline,
   verdictLabel,
 } from '@/lib/feedback'
-import { dayKey } from '@/lib/date'
+import { dayKey, DAY_MS } from '@/lib/date'
 import { gradeAnswer } from '@/lib/grade'
 import { levenshtein, normalizeChinese, normalizeEnglish } from '@/lib/normalize'
 import {
   computeStreak,
   applyReview,
+  countDueBefore,
   createProgress,
   isDue,
   isMastered,
@@ -23,9 +30,11 @@ import {
   exportData,
   importData,
   loadSessionDraft,
+  normalizeBestCombo,
   saveSessionDraft,
 } from '@/lib/storage'
 import { useSessionStore } from '@/stores/session'
+import { useProgressStore } from '@/stores/progress'
 import type { CategoryId } from '@/types/phrase'
 import type { DayStats, SessionDraft } from '@/types/progress'
 
@@ -218,6 +227,19 @@ describe('session', () => {
     expect(settings.categories).toEqual([])
   })
 
+  it('再来一轮沿用上一次的临时范围', () => {
+    setActivePinia(createPinia())
+    const session = useSessionStore()
+    const ids = phrases.slice(0, 4).map((phrase) => phrase.id)
+    session.startWith(ids, '词库筛选 · 4 条')
+    expect(session.lastOptions.phraseIds).toEqual(ids)
+    expect(session.lastOptions.label).toBe('词库筛选 · 4 条')
+
+    session.start(session.lastOptions)
+    expect(session.total).toBe(4)
+    expect(session.scopeLabel).toBe('词库筛选 · 4 条')
+  })
+
   it('标记「我会了」只撤回重练，不改答案与正确率', () => {
     setActivePinia(createPinia())
     const session = useSessionStore()
@@ -258,6 +280,7 @@ describe('session 草稿', () => {
       hintsUsed: 0,
       answers: [],
       plannedTotal: 1,
+      masteredAtStart: 0,
       scopeLabel: '',
     }
   }
@@ -319,6 +342,158 @@ describe('内容数据', () => {
   })
 })
 
+describe('seo 与路由', () => {
+  it('旧 hash 链接被映射成 history 路径', () => {
+    expect(legacyHashTarget('https://example.com/PhraseLabs/#/library?q=a')).toBe(
+      'https://example.com/PhraseLabs/library?q=a',
+    )
+    expect(legacyHashTarget('https://example.com/#/')).toBe('https://example.com/')
+    expect(legacyHashTarget('#/phrases/daily')).toBe('/phrases/daily')
+  })
+
+  it('不是旧 hash 链接时不做改写', () => {
+    expect(legacyHashTarget('https://example.com/PhraseLabs/library')).toBeNull()
+    expect(legacyHashTarget('https://example.com/PhraseLabs/#anchors')).toBeNull()
+  })
+
+  it('canonical 与分享图都用绝对地址，且不带多余尾斜杠', () => {
+    expect(canonicalUrl('/')).toBe(`${SITE_URL}/`)
+    expect(canonicalUrl('/library')).toBe(`${SITE_URL}/library`)
+    expect(canonicalUrl('/phrases/daily/')).toBe(`${SITE_URL}/phrases/daily`)
+    expect(OG_IMAGE).toBe(`${SITE_URL}/og.png`)
+  })
+
+  it('一条动态路由承载全部 11 个分类落地页', () => {
+    const router = createRouter({ history: createMemoryHistory(), routes })
+    for (const category of categories) {
+      const resolved = router.resolve(`/phrases/${category.id}`)
+      expect(resolved.name).toBe('category')
+      expect(resolved.params.category).toBe(category.id)
+    }
+    expect(router.resolve('/library').name).toBe('library')
+  })
+
+  it('可收录页面放开索引，个人界面禁止索引', () => {
+    const robotsOf = (path: string) => routes.find((route) => route.path === path)?.meta?.robots
+    expect(robotsOf('/')).toBe('index, follow')
+    expect(robotsOf('/library')).toBe('index, follow')
+    expect(robotsOf('/phrases/:category')).toBe('index, follow')
+    expect(robotsOf('/study')).toBe('noindex, follow')
+    expect(robotsOf('/stats')).toBe('noindex, nofollow')
+    expect(robotsOf('/settings')).toBe('noindex, nofollow')
+  })
+
+  it('未知路径回到首页', () => {
+    const fallback = routes.find((route) => route.path === '/:pathMatch(.*)*')
+    expect(fallback?.redirect).toBe('/')
+  })
+
+  it('分类计数与分类表一一对应，没有空分类和数据孤儿', () => {
+    expect(Object.keys(phraseCountByCategory).sort()).toEqual(
+      categories.map((category) => category.id).sort(),
+    )
+    for (const count of Object.values(phraseCountByCategory)) {
+      expect(count).toBeGreaterThan(0)
+    }
+  })
+})
+
+describe('分类页内容与今日一句', () => {
+  it('11 个分类都有专属文案，且不重复套模板', () => {
+    expect(Object.keys(categoryContent).sort()).toEqual(categories.map((item) => item.id).sort())
+    const intros = new Set<string>()
+    const scenarios = new Set<string>()
+    for (const category of categories) {
+      const content = categoryContent[category.id]
+      expect(content.intro.length).toBeGreaterThanOrEqual(80)
+      expect(content.scenario.length).toBeGreaterThanOrEqual(10)
+      expect(content.tips).toHaveLength(3)
+      intros.add(content.intro)
+      scenarios.add(content.scenario)
+    }
+    expect(intros.size).toBe(11)
+    expect(scenarios.size).toBe(11)
+  })
+
+  it('每类三条 FAQ，问答都不为空，可直接喂给 FAQPage', () => {
+    for (const category of categories) {
+      const content = categoryContent[category.id]
+      expect(content.faq).toHaveLength(3)
+      const questions = new Set<string>()
+      for (const entry of content.faq) {
+        expect(entry.q.trim().length).toBeGreaterThanOrEqual(6)
+        expect(entry.a.trim().length).toBeGreaterThanOrEqual(20)
+        questions.add(entry.q)
+      }
+      expect(questions.size).toBe(3)
+    }
+  })
+
+  it('contentOf 只认已知分类', () => {
+    expect(contentOf('daily')?.intro).toBe(categoryContent.daily.intro)
+    expect(contentOf('unknown')).toBeUndefined()
+  })
+
+  it('今日一句同日稳定、跨天轮换', () => {
+    const day = ['2026-11-20', '2026-11-21', '2026-12-31', '2027-01-01']
+    for (const key of day) {
+      const first = pickDaily(phrases, key)
+      expect(first).toBeDefined()
+      expect(pickDaily(phrases, key)).toBe(first)
+    }
+    // 锁定算法：换实现就不能静默改变历史日期对应的句子
+    expect(hashDay('2026-11-20')).toBe(102300637)
+    expect(hashDay('2026-11-21')).toBe(85523018)
+    const picks = new Set(day.map((key) => pickDaily(phrases, key)?.id))
+    expect(picks.size).toBeGreaterThan(1)
+    expect(pickDaily([], '2026-11-20')).toBeUndefined()
+  })
+})
+
+describe('最高连对', () => {
+  it('只增不减，并记住破纪录的日期', () => {
+    setActivePinia(createPinia())
+    const store = useProgressStore()
+    expect(store.bestCombo).toEqual({ combo: 0, day: '' })
+    expect(store.noteCombo(3, '2026-11-20')).toBe(true)
+    expect(store.bestCombo).toEqual({ combo: 3, day: '2026-11-20' })
+    expect(store.noteCombo(2, '2026-11-21')).toBe(false)
+    expect(store.bestCombo.combo).toBe(3)
+    expect(store.noteCombo(4, '2026-11-21')).toBe(true)
+    expect(store.bestCombo).toEqual({ combo: 4, day: '2026-11-21' })
+  })
+
+  it('只把已学过的到期条数算进明日待复习', () => {
+    const now = Date.UTC(2026, 0, 1)
+    const progress = {
+      a: createProgress(now),
+      b: { ...createProgress(now), nextReview: now + 2 * DAY_MS },
+      c: { ...createProgress(now), nextReview: now + DAY_MS },
+    }
+    expect(countDueBefore(progress, now)).toBe(1)
+    expect(countDueBefore({}, now)).toBe(0)
+    expect(countDueBefore(progress, now + DAY_MS)).toBe(2)
+  })
+
+  it('结算时把本轮连对补记进历史最高', () => {
+    setActivePinia(createPinia())
+    const progress = useProgressStore()
+    const session = useSessionStore()
+    session.startWith(['daily-001'])
+    session.record(true)
+    session.record(true)
+    expect(progress.bestCombo.combo).toBe(2)
+
+    // 刷新恢复的草稿：结束时不补一次，历史记录就会漏掉这一轮
+    session.startWith(['daily-001'])
+    expect(progress.bestCombo.combo).toBe(2)
+    session.bestCombo = 9
+    session.syncBestCombo()
+    expect(progress.bestCombo.combo).toBe(9)
+    expect(session.recordBeaten).toBe(true)
+  })
+})
+
 describe('storage', () => {
   it('导出后可原样导入', () => {
     const progress = { 'daily-001': createProgress(1000) }
@@ -330,6 +505,23 @@ describe('storage', () => {
 
   it('拒绝未知版本', () => {
     expect(() => importData('{"version":99}')).toThrow('不支持的数据版本')
+  })
+
+  it('最高连对随备份往返，旧备份缺字段时归零', () => {
+    const dumped = exportData({}, settingsDefault(), {}, { combo: 12, day: '2026-11-20' })
+    expect(importData(dumped).bestCombo).toEqual({ combo: 12, day: '2026-11-20' })
+
+    const legacy = JSON.stringify({ version: 1, progress: {}, stats: {}, settings: {} })
+    expect(importData(legacy).bestCombo).toEqual({ combo: 0, day: '' })
+  })
+
+  it('手改的最高连对数据被归一到非负整数', () => {
+    expect(normalizeBestCombo(null)).toEqual({ combo: 0, day: '' })
+    expect(normalizeBestCombo({ combo: -3, day: 5 })).toEqual({ combo: 0, day: '' })
+    expect(normalizeBestCombo({ combo: 7.9, day: '2026-11-20' })).toEqual({
+      combo: 7,
+      day: '2026-11-20',
+    })
   })
 
   it('旧数据中的跟写、听写模式回退为默认模式', () => {

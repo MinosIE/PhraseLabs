@@ -2,8 +2,9 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import AnswerInput from '@/components/AnswerInput.vue'
 import AnswerFeedback from '@/components/AnswerFeedback.vue'
-import { DAY_MS, dayKey } from '@/lib/date'
+import { DAY_MS, dayKey, formatDate } from '@/lib/date'
 import { gradeAnswer, type GradeResult } from '@/lib/grade'
+import { countDueBefore, isMastered } from '@/lib/srs'
 import { speakEn } from '@/lib/speech'
 import { useProgressStore } from '@/stores/progress'
 import { useSessionStore } from '@/stores/session'
@@ -21,6 +22,7 @@ const hintOpen = ref(false)
 const shake = ref(false)
 const goalReached = ref(false)
 const modalRef = ref<HTMLElement | null>(null)
+const summaryAction = ref<HTMLButtonElement | null>(null)
 const submitting = ref(false)
 const speaking = ref(false)
 // 本题被用户标记为「我会了」，只影响重练与排期，不影响正确率
@@ -47,6 +49,34 @@ const nextReviewText = computed(() => {
   if (days <= 0) return '今天'
   return days === 1 ? '明天' : `${days} 天后`
 })
+
+/* ---------- 本轮结算：只用已经发生的数据，不编造「新学」口径 ---------- */
+
+/** 本轮新掌握：当前已掌握数减去开局快照，负数按 0 处理（答错会降盒） */
+const masteredGained = computed(() => {
+  const now = Object.values(progressStore.progress).filter(isMastered).length
+  return Math.max(0, now - sessionStore.masteredAtStart)
+})
+
+/** 明天结束前需要复习的短语数（含已逾期的） */
+const dueTomorrow = computed(() => {
+  const end = new Date()
+  end.setHours(23, 59, 59, 999)
+  return countDueBefore(progressStore.progress, end.getTime() + DAY_MS)
+})
+
+/** 历史最高连对的日期，没记录时不显示括号 */
+const bestComboDay = computed(() =>
+  progressStore.bestCombo.day ? formatDate(progressStore.bestCombo.day) : '',
+)
+
+const summaryLine = computed(() => {
+  if (sessionStore.answeredCount === 0) return '这一轮没有作答，随时可以重新开始。'
+  if (sessionStore.accuracy >= 90) return '这一轮很稳，明天到期的那几条过一遍就够了。'
+  if (sessionStore.accuracy >= 70) return '大部分已经拿住，没答对的那几条已经排到下一轮前面。'
+  return '错得多不是退步：它们已经被标记出来，下一轮会优先再问你一次。'
+})
+
 const questionPercent = computed(() => {
   // 分母固定为本轮初始题数，答错追加的重练不会让进度条倒退
   const total = sessionStore.plannedTotal
@@ -261,7 +291,8 @@ function restart(): void {
   hintOpen.value = false
   goalReached.value = false
   mastered.value = false
-  sessionStore.start()
+  // 沿用上一轮的范围：从筛选结果或「5 条快练」进来时，再来一轮仍是同一批
+  sessionStore.start(sessionStore.lastOptions)
   inputKey.value = `0-${Date.now()}`
 }
 
@@ -327,7 +358,23 @@ onMounted(() => {
     if (!sessionStore.restore()) sessionStore.start()
   }
   window.addEventListener('keydown', onGlobalKey)
+  // 恢复的草稿可能已经结完一轮：补写最高连对，并把焦点放到「再来一轮」
+  if (sessionStore.finished) {
+    sessionStore.syncBestCombo()
+    void nextTick(() => summaryAction.value?.focus())
+  }
 })
+
+// 最后一题答完弹框关闭后，焦点落在「再来一轮」，键盘用户不会掉出页面
+watch(
+  () => sessionStore.finished,
+  async (finished) => {
+    if (!finished) return
+    sessionStore.syncBestCombo()
+    await nextTick()
+    summaryAction.value?.focus()
+  },
+)
 
 onUnmounted(() => {
   window.removeEventListener('keydown', onGlobalKey)
@@ -449,25 +496,47 @@ onUnmounted(() => {
       </div>
     </template>
 
-    <div v-else class="card" style="margin-top: 40px">
-      <div class="eyebrow">Session complete</div>
+    <div v-else class="card summary-card" style="margin-top: 40px">
+      <div class="eyebrow">Session complete · {{ sessionStore.scopeLabel || '本轮训练' }}</div>
       <h1 style="font-size: 40px; margin: 16px 0 10px">这一轮，收工。</h1>
-      <p class="muted" style="line-height: 1.8">
-        作答 {{ sessionStore.answeredCount }} 题，正确率 {{ sessionStore.accuracy }}%，
-        最佳连对 {{ sessionStore.bestCombo }} 题。答错和跳过的短语会在后续优先出现。
-      </p>
-      <div style="display: flex; gap: 32px; margin: 28px 0">
-        <div>
-          <div class="summary-number">{{ sessionStore.answeredCount }}</div>
-          <div class="small muted">已作答</div>
+      <p class="muted" style="line-height: 1.8">{{ summaryLine }}</p>
+
+      <div class="summary-grid">
+        <div class="summary-metric">
+          <div class="summary-value">{{ sessionStore.answeredCount }}</div>
+          <div class="small muted">作答题数</div>
         </div>
-        <div>
-          <div class="summary-number">{{ sessionStore.accuracy }}%</div>
+        <div class="summary-metric">
+          <div class="summary-value">{{ sessionStore.accuracy }}%</div>
           <div class="small muted">正确率</div>
         </div>
+        <div class="summary-metric">
+          <div class="summary-value">
+            {{ sessionStore.bestCombo }}
+            <span v-if="sessionStore.recordBeaten" class="badge due">新纪录</span>
+          </div>
+          <div class="small muted">本轮最高连对</div>
+        </div>
+        <div class="summary-metric">
+          <div class="summary-value">{{ dueTomorrow }}</div>
+          <div class="small muted">明天到期</div>
+        </div>
       </div>
-      <div class="hero-actions">
-        <button class="btn btn-primary btn-lg" type="button" @click="restart">再来一轮</button>
+
+      <p class="small muted summary-foot">
+        <span>本轮新掌握 {{ masteredGained }} 条</span>
+        <span>提示 {{ sessionStore.hintsUsed }} 次</span>
+        <span>
+          历史最高连对 {{ progressStore.bestCombo.combo }}
+          <template v-if="bestComboDay">（{{ bestComboDay }}）</template>
+        </span>
+      </p>
+
+      <div class="hero-actions" style="margin-top: 22px">
+        <button ref="summaryAction" class="btn btn-primary btn-lg" type="button" @click="restart">
+          再来一轮
+        </button>
+        <RouterLink class="btn btn-lg" to="/stats">看统计</RouterLink>
         <RouterLink class="btn btn-lg" to="/" @click="sessionStore.reset()">回到首页</RouterLink>
       </div>
     </div>

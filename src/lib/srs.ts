@@ -54,6 +54,14 @@ export function isMastered(progress: PhraseProgress | undefined): boolean {
   return !!progress && progress.box >= 4
 }
 
+/** 到指定时刻之前需要复习的短语数（只统计已学过的，新词不算到期） */
+export function countDueBefore(
+  progress: Record<string, PhraseProgress>,
+  timestamp: number,
+): number {
+  return Object.values(progress).filter((item) => item.nextReview <= timestamp).length
+}
+
 export function computeStreak(stats: DayStats, now: number = Date.now()): number {
   const studied = Object.entries(stats)
     .filter(([, stat]) => stat.reviewed > 0)

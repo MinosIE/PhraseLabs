@@ -1,4 +1,11 @@
-import type { AppData, DayStats, PhraseProgress, SessionDraft, Settings } from '@/types/progress'
+import type {
+  AppData,
+  BestComboRecord,
+  DayStats,
+  PhraseProgress,
+  SessionDraft,
+  Settings,
+} from '@/types/progress'
 import { dayKey } from './date'
 
 const PREFIX = 'phraselabs:v1:'
@@ -6,6 +13,7 @@ const KEYS = {
   progress: `${PREFIX}progress`,
   settings: `${PREFIX}settings`,
   stats: `${PREFIX}stats`,
+  bestCombo: `${PREFIX}best-combo`,
   session: `${PREFIX}session`,
 }
 
@@ -70,6 +78,25 @@ export function saveStats(stats: DayStats): void {
   write(KEYS.stats, stats)
 }
 
+/** 容错：旧数据、手改数据都可能缺字段，统一归一到非负整数 */
+export function normalizeBestCombo(raw: unknown): BestComboRecord {
+  if (typeof raw !== 'object' || raw === null) return { combo: 0, day: '' }
+  const record = raw as Partial<BestComboRecord>
+  const combo =
+    typeof record.combo === 'number' && Number.isFinite(record.combo) && record.combo > 0
+      ? Math.floor(record.combo)
+      : 0
+  return { combo, day: typeof record.day === 'string' ? record.day : '' }
+}
+
+export function loadBestCombo(): BestComboRecord {
+  return normalizeBestCombo(read<unknown>(KEYS.bestCombo, null))
+}
+
+export function saveBestCombo(record: BestComboRecord): void {
+  write(KEYS.bestCombo, record)
+}
+
 /** 本轮训练草稿存 sessionStorage：刷新可见，关掉标签页自动失效，不占长期容量 */
 export function loadSessionDraft(): SessionDraft | null {
   if (typeof sessionStorage === 'undefined') return null
@@ -95,6 +122,7 @@ export function loadSessionDraft(): SessionDraft | null {
       hintsUsed: draft.hintsUsed ?? 0,
       answers: draft.answers,
       plannedTotal: draft.plannedTotal ?? draft.queue.length,
+      masteredAtStart: draft.masteredAtStart ?? 0,
       scopeLabel: draft.scopeLabel ?? '',
     }
   } catch {
@@ -120,13 +148,19 @@ export function clearSessionDraft(): void {
   }
 }
 
-export function exportData(progress: Record<string, PhraseProgress>, settings: Settings, stats: DayStats): string {
+export function exportData(
+  progress: Record<string, PhraseProgress>,
+  settings: Settings,
+  stats: DayStats,
+  bestCombo: BestComboRecord = { combo: 0, day: '' },
+): string {
   const payload: AppData = {
     version: 1,
     exportedAt: new Date().toISOString(),
     progress,
     settings,
     stats,
+    bestCombo,
   }
   return JSON.stringify(payload, null, 2)
 }
@@ -146,5 +180,6 @@ export function importData(raw: string): AppData {
     progress: data.progress as Record<string, PhraseProgress>,
     settings: normalizeSettings(data.settings ?? {}),
     stats: data.stats as DayStats,
+    bestCombo: normalizeBestCombo(data.bestCombo),
   }
 }

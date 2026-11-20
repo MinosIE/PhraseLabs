@@ -85,6 +85,7 @@ function onExport(): void {
     progressStore.progress,
     settingsStore.settings,
     progressStore.stats,
+    progressStore.bestCombo,
   )
   const url = URL.createObjectURL(new Blob([content], { type: 'application/json' }))
   const link = document.createElement('a')
@@ -107,7 +108,7 @@ async function onImport(event: Event): Promise<void> {
   importing.value = true
   try {
     const data = importData(await file.text())
-    progressStore.replace(data.progress, data.stats)
+    progressStore.replace(data.progress, data.stats, data.bestCombo)
     settingsStore.replace(data.settings)
     message.value = '导入成功，进度已恢复。'
   } catch (error) {

@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { phrases, phraseById } from '@/data/phrases'
 import { dayKey } from '@/lib/date'
 import { buildQueue, type QueueScope } from '@/lib/session'
+import { isMastered } from '@/lib/srs'
 import { clearSessionDraft, loadSessionDraft, saveSessionDraft } from '@/lib/storage'
 import type { Phrase, StudyMode } from '@/types/phrase'
 import type { QueueItem } from '@/types/progress'
@@ -22,11 +23,17 @@ export const useSessionStore = defineStore('session', () => {
   const answeredCount = ref(0)
   const combo = ref(0)
   const bestCombo = ref(0)
+  /** 本轮是否刷新了历史最高连对（结算页显示「新纪录」）；不落草稿，刷新后仅少一个徽标 */
+  const recordBeaten = ref(false)
   const hintsUsed = ref(0)
   const answers = ref<{ phraseId: string; correct: boolean }[]>([])
   /** 本轮开始时的题目总数；重练追加不影响它，进度条因此不会倒退 */
   const plannedTotal = ref(0)
+  /** 本轮开始时已掌握的短语数，结算时用它算「本轮新掌握」 */
+  const masteredAtStart = ref(0)
   const scopeLabel = ref('')
+  /** 上一次开练用的临时范围，结算页「再来一轮」沿用它；不落草稿 */
+  const lastOptions = ref<StartOptions>({})
 
   const current = computed<{ phrase: Phrase; mode: StudyMode } | null>(() => {
     const item = queue.value[index.value]
@@ -59,21 +66,23 @@ export const useSessionStore = defineStore('session', () => {
       hintsUsed: hintsUsed.value,
       answers: answers.value,
       plannedTotal: plannedTotal.value,
+      masteredAtStart: masteredAtStart.value,
       scopeLabel: scopeLabel.value,
     })
   }
 
   watch(
-    [queue, index, finished, correctCount, answeredCount, combo, bestCombo, hintsUsed, answers, plannedTotal, scopeLabel],
+    [queue, index, finished, correctCount, answeredCount, combo, bestCombo, hintsUsed, answers, plannedTotal, masteredAtStart, scopeLabel],
     persist,
     { deep: true },
   )
 
   function start(options: StartOptions = {}): void {
     const settingsStore = useSettingsStore()
+    const progressStore = useProgressStore()
     queue.value = buildQueue(
       phrases,
-      useProgressStore().progress,
+      progressStore.progress,
       settingsStore.settings,
       Date.now(),
       options,
@@ -83,10 +92,13 @@ export const useSessionStore = defineStore('session', () => {
     answeredCount.value = 0
     combo.value = 0
     bestCombo.value = 0
+    recordBeaten.value = false
     hintsUsed.value = 0
     answers.value = []
     plannedTotal.value = queue.value.length
+    masteredAtStart.value = Object.values(progressStore.progress).filter(isMastered).length
     scopeLabel.value = options.label ?? ''
+    lastOptions.value = { ...options }
     finished.value = queue.value.length === 0
   }
 
@@ -114,6 +126,7 @@ export const useSessionStore = defineStore('session', () => {
     hintsUsed.value = draft.hintsUsed
     answers.value = draft.answers.filter((answer) => phraseById.has(answer.phraseId))
     plannedTotal.value = Math.max(draft.plannedTotal, index.value + 1)
+    masteredAtStart.value = draft.masteredAtStart
     scopeLabel.value = draft.scopeLabel
     return true
   }
@@ -126,9 +139,19 @@ export const useSessionStore = defineStore('session', () => {
       correctCount.value++
       combo.value++
       bestCombo.value = Math.max(bestCombo.value, combo.value)
+      if (useProgressStore().noteCombo(combo.value)) recordBeaten.value = true
     } else {
       combo.value = 0
     }
+  }
+
+  /**
+   * 结算前把本轮最高连对写进历史记录。
+   * 逐题记录已经写过一次，这里兜底刷新恢复的草稿与中断后重新打开的情况。
+   */
+  function syncBestCombo(): void {
+    if (bestCombo.value <= 0) return
+    if (useProgressStore().noteCombo(bestCombo.value)) recordBeaten.value = true
   }
 
   /**
@@ -177,9 +200,11 @@ export const useSessionStore = defineStore('session', () => {
     answeredCount.value = 0
     combo.value = 0
     bestCombo.value = 0
+    recordBeaten.value = false
     hintsUsed.value = 0
     answers.value = []
     plannedTotal.value = 0
+    masteredAtStart.value = 0
     scopeLabel.value = ''
     finished.value = false
     clearSessionDraft()
@@ -196,10 +221,13 @@ export const useSessionStore = defineStore('session', () => {
     answeredCount,
     combo,
     bestCombo,
+    recordBeaten,
     hintsUsed,
     answers,
     plannedTotal,
+    masteredAtStart,
     scopeLabel,
+    lastOptions,
     current,
     total,
     served,
@@ -209,6 +237,7 @@ export const useSessionStore = defineStore('session', () => {
     startWith,
     restore,
     record,
+    syncBestCombo,
     dropRepeat,
     noteHint,
     next,

@@ -17,6 +17,13 @@ export interface DayStat {
 
 export type DayStats = Record<string, DayStat>
 
+/** 历史最高连对，跨会话累计，只增不减 */
+export interface BestComboRecord {
+  combo: number
+  /** 创下记录当天（YYYY-MM-DD）；空串表示还没有记录 */
+  day: string
+}
+
 export type Strictness = 'strict' | 'normal' | 'lenient'
 export type Theme = 'system' | 'light' | 'dark'
 
@@ -37,6 +44,8 @@ export interface AppData {
   progress: Record<string, PhraseProgress>
   settings: Settings
   stats: DayStats
+  /** 可选：旧备份没有这一项，导入时回退为 0 */
+  bestCombo?: BestComboRecord
 }
 
 export interface QueueItem {
@@ -57,6 +66,8 @@ export interface SessionDraft {
   hintsUsed: number
   answers: { phraseId: string; correct: boolean }[]
   plannedTotal: number
+  /** 本轮开始前已掌握的短语数，用于结算时算「本轮新掌握」 */
+  masteredAtStart: number
   /** 本轮来源标签，如「词库筛选 · 12 条」「分类：职场沟通」 */
   scopeLabel: string
 }
