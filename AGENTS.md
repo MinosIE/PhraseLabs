@@ -50,6 +50,7 @@ src/
     storage.ts           localStorage 读写 + 导入导出 + 旧数据迁移 + 最高连对键 + 本轮草稿(sessionStorage)
     speech.ts            Web Speech 朗读、音色单次探测与能力检测、playback Promise
     feedback.ts          结果标题/鼓励文案
+    mistakes.ts          错词本：`isMistake`/`pickMistakes`（错 ≥2 次或错误率过半，掌握后自动淡出）
     seo.ts               站点常量（SITE_URL/OG_IMAGE）、canonicalUrl、legacyHashTarget
     daily.ts             「今日一句」按日期哈希挑选（同日稳定、跨天轮换）
   data/
@@ -97,6 +98,7 @@ vite.config.ts          VITE_BASE_PATH → base；ssgOptions（dirStyle + includ
 | 内容 | `data/phrases/` | 静态短语与分类计数 | 运行时逻辑 |
 | 分类文案 | `data/categoryContent.ts` | 11 类专属 intro/scenario/tips/faq，供分类页与 `FAQPage` | 条数（页面按数据实时渲染） |
 | 今日一句 | `lib/daily.ts` | 按日期 FNV-1a 哈希挑一条，同日稳定、跨天轮换 | 展示与朗读（HomeView） |
+| 错词本 | `lib/mistakes.ts` | 错词定义（错 ≥2 次或错误率 ≥40%，稳定度 <15 天）、排序（错次 → 错误率 → 稳定度）与截断 | 存储（直接读 `progress`）、UI 渲染 |
 | 路由与 SEO | `router/index.ts` + `lib/seo.ts` + `App.vue` | 路由表、标题/描述/robots/canonical/OG/JSON-LD、旧 hash 映射 | 各页交互 |
 | 构建后处理 | `scripts/postbuild.mjs` | `404.html`、`sitemap.xml`、`llms.txt`、预渲染产物校验 | 页面渲染 |
 
@@ -166,7 +168,7 @@ Vue SFC 统一 `<script setup lang="ts">` → `<template>` →（无 `<style sco
 
 ### 2.8 测试要求
 
-Vitest，唯一测试文件 `src/lib/__tests__/core.test.ts`，当前 50 项。覆盖判定、队列（含临时范围与指定集合、再来一轮沿用范围、保留率排序）、遗忘曲线（稳定度增减、指数衰减、上下限、难词打折）、`countDueBefore`、归一化、存储迁移（盒子→稳定度）与最高连对往返、本轮草稿跨天失效、数据结构不变量，以及 SEO/内容层（旧 hash 映射、canonical、路由 robots 策略、分类路由与计数一致性、11 类分类文案与 FAQ 完整性、`hashDay` 锁定值与今日一句稳定性）。
+Vitest，唯一测试文件 `src/lib/__tests__/core.test.ts`，当前 54 项。覆盖判定、队列（含临时范围与指定集合、再来一轮沿用范围、保留率排序）、遗忘曲线（稳定度增减、指数衰减、上下限、难词打折）、错词本阈值与排序、`countDueBefore`、归一化、存储迁移（盒子→稳定度）与最高连对往返、本轮草稿跨天失效、数据结构不变量，以及 SEO/内容层（旧 hash 映射、canonical、路由 robots 策略、分类路由与计数一致性、11 类分类文案与 FAQ 完整性、`hashDay` 锁定值与今日一句稳定性）。
 
 `package.json` 的 `pretest` 会先跑 `scripts/validate-phrases.mjs`（即 `pnpm check:content`）：`id`/`en` 全局唯一、`en` 含空格或连字符、`aliases` 归一化后 ≥2 汉字、`exampleEn` 可挖空、分类计数与 `phraseCountByCategory` 一致、README/PRODUCT 的条数与分类数同步。它通过 Vite SSR 加载器直接读 TS 数据，不要改成正则解析；任一问题失败会阻止测试与 CI。**提交前必跑** `pnpm test && pnpm typecheck && pnpm build`；CI（`.github/workflows/deploy.yml`）先测后构建，任一失败不部署。
 

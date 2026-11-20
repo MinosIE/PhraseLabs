@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { categories } from '@/data/categories'
 import { phrases } from '@/data/phrases'
 import { DAY_MS, dayKey, formatDate } from '@/lib/date'
+import { pickMistakes } from '@/lib/mistakes'
 import { computeStreak, isMastered } from '@/lib/srs'
 import { useProgressStore } from '@/stores/progress'
 import { useSessionStore } from '@/stores/session'
@@ -71,6 +72,18 @@ function practiceFocus(): void {
   sessionStore.startWith(
     focusList.value.map((phrase) => phrase.id),
     `薄弱短语 · ${focusList.value.length} 条`,
+  )
+  void router.push('/study')
+}
+
+/** 错词榜：按「错得多 → 错误率高 → 稳定度低」排，掌握后自动淡出 */
+const mistakeList = computed(() => pickMistakes(phrases, progressStore.progress, 10))
+
+function practiceMistakes(): void {
+  if (!mistakeList.value.length) return
+  sessionStore.startWith(
+    mistakeList.value.map((entry) => entry.phrase.id),
+    `错词本 · ${mistakeList.value.length} 条`,
   )
   void router.push('/study')
 }
@@ -162,6 +175,38 @@ const categoryStats = computed(() =>
           </div>
         </div>
       </div>
+    </section>
+
+    <section class="section card">
+      <div class="section-head">
+        <h2>高频错词</h2>
+        <button
+          class="btn btn-sm btn-primary"
+          type="button"
+          :disabled="!mistakeList.length"
+          @click="practiceMistakes"
+        >
+          练这 {{ mistakeList.length }} 条
+        </button>
+      </div>
+      <div v-if="!mistakeList.length" class="empty-state">
+        还没有错词记录，练一轮就会有了。掌握（稳定度 ≥15 天）的短语会自动淡出这里。
+      </div>
+      <div v-else class="focus-list">
+        <div v-for="entry in mistakeList" :key="entry.phrase.id" class="focus-item">
+          <div class="focus-main">
+            <div class="phrase-en">{{ entry.phrase.en }}</div>
+            <div class="phrase-zh">{{ entry.phrase.zh }}</div>
+          </div>
+          <div class="focus-meta">
+            <span class="badge due">错 {{ entry.progress.wrong }} / 对 {{ entry.progress.correct }}</span>
+            <span class="badge">记忆稳定 {{ stabilityText(entry.phrase.id) }}</span>
+          </div>
+        </div>
+      </div>
+      <p class="small muted" style="margin-top: 10px">
+        错 2 次以上，或错误率过半的短语会进入这里；可到词库用「错词」筛选查看全部。
+      </p>
     </section>
 
     <section class="section card">

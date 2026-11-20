@@ -14,6 +14,7 @@ import {
   verdictLabel,
 } from '@/lib/feedback'
 import { dayKey, DAY_MS } from '@/lib/date'
+import { errorRateOf, isMistake, pickMistakes } from '@/lib/mistakes'
 import { gradeAnswer } from '@/lib/grade'
 import { levenshtein, normalizeChinese, normalizeEnglish } from '@/lib/normalize'
 import {
@@ -191,6 +192,52 @@ describe('srs', () => {
       '2026-01-06': { reviewed: 9, correct: 9, learned: 0 },
     }
     expect(computeStreak(stats, now)).toBe(3)
+  })
+})
+
+describe('错词本', () => {
+  const now = Date.UTC(2026, 0, 1)
+  const record = (correct: number, wrong: number, stability = 2) => ({
+    stability,
+    correct,
+    wrong,
+    lastReviewed: now,
+    nextReview: now + stability * DAY_MS,
+  })
+
+  it('一次失误不算错词，错两次或错误率过半才算', () => {
+    expect(isMistake(record(0, 1))).toBe(false)
+    expect(isMistake(record(1, 2))).toBe(true)
+    expect(isMistake(record(1, 1))).toBe(true) // 错误率 50%
+    expect(isMistake(record(9, 1))).toBe(false) // 错一次但对了九次
+    expect(isMistake(undefined)).toBe(false)
+  })
+
+  it('稳定度到掌握线后自动淡出', () => {
+    expect(isMistake(record(1, 5, MASTERED_STABILITY))).toBe(false)
+    expect(isMistake(record(1, 5, MASTERED_STABILITY - 0.01))).toBe(true)
+  })
+
+  it('errorRateOf 容忍零作答', () => {
+    expect(errorRateOf(record(0, 0))).toBe(0)
+    expect(errorRateOf(record(1, 3))).toBe(0.75)
+  })
+
+  it('按错次排序、只取命中项并截断', () => {
+    const entries = pickMistakes(
+      phrases,
+      {
+        'daily-001': record(0, 2),
+        'daily-002': record(1, 3),
+        'daily-003': record(9, 1),
+        'daily-004': record(0, 1),
+        'gone-999': record(0, 9),
+      },
+      2,
+    )
+    // 错 1 次不算、已删除的 id 不参与；错 3 次的排第一
+    expect(entries.map((entry) => entry.phrase.id)).toEqual(['daily-002', 'daily-001'])
+    expect(entries[0].errorRate).toBe(0.75)
   })
 })
 

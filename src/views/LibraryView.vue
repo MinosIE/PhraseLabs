@@ -5,6 +5,7 @@ import SelectField from '@/components/SelectField.vue'
 import { categories, categoryName } from '@/data/categories'
 import { phraseCountByCategory, phrases } from '@/data/phrases'
 import { useDebounce } from '@/composables/useDebounce'
+import { isMistake } from '@/lib/mistakes'
 import { isDue, isMastered } from '@/lib/srs'
 import { speakEn } from '@/lib/speech'
 import { useProgressStore } from '@/stores/progress'
@@ -25,7 +26,7 @@ const debouncedQuery = useDebounce(query)
 const activeCategory = ref<CategoryId | ''>('')
 const activeLevel = ref<Level | ''>('')
 const sort = ref<'default' | 'level' | 'mastery'>('default')
-const status = ref<'all' | 'due' | 'mastered' | 'favorite'>('all')
+const status = ref<'all' | 'due' | 'mastered' | 'favorite' | 'mistake'>('all')
 const visibleCount = ref(PAGE_SIZE)
 const sentinel = ref<HTMLElement | null>(null)
 let observer: IntersectionObserver | null = null
@@ -47,6 +48,7 @@ const filtered = computed(() => {
     const progress = progressStore.progress[phrase.id]
     if (status.value === 'due' && !isDue(progress)) return false
     if (status.value === 'mastered' && !isMastered(progress)) return false
+    if (status.value === 'mistake' && !isMistake(progress)) return false
     if (status.value === 'favorite' && !favoriteSet.value.has(phrase.id)) return false
     return true
   })
@@ -160,6 +162,7 @@ const sortOptions = [
 const statuses = [
   { value: 'all', label: '全部' },
   { value: 'due', label: '待复习' },
+  { value: 'mistake', label: '错词' },
   { value: 'mastered', label: '已掌握' },
   { value: 'favorite', label: '已收藏' },
 ] as const
