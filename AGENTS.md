@@ -252,7 +252,7 @@ Vitest，唯一测试文件 `src/lib/__tests__/core.test.ts`，当前 46 项。�
 
 ### 3.7 回归清单
 
-- [ ] `pnpm test` / `pnpm typecheck` / `pnpm build` 全过（`[postbuild]` 输出 11 分类 / 703 条，预渲染 13 个页面）
+- [ ] `pnpm test` / `pnpm typecheck` / `pnpm build` 全过（`[postbuild]` 输出 11 分类 / 789 条，预渲染 13 个页面）
 - [ ] `pnpm check:content` 通过（`pnpm test` 已包含；它同时校验文档里的条数与分类数）
 - [ ] 无重复 `id` / `en`（跨分类有意重复需确认）
 - [ ] `aliases` 全部 ≥ 2 汉字；`exampleEn` 含 `en`
@@ -278,7 +278,7 @@ Vitest，唯一测试文件 `src/lib/__tests__/core.test.ts`，当前 46 项。�
 
 ### 5.1 已完成模块
 
-五种模式中的三种具体题型 + 混合、Leitner 复习、统计页、词库筛选、导入导出、主题、严格度、收藏、音色按设备能力显隐的手动朗读、加载态、自定义下拉、判定弹框与逐题对错、本轮结算页与历史最高连对（跨会话只增不减、随备份往返）、11 类 703 条短语（已完成跨分类去重，全库 `en` 唯一；补齐过高频口语/习语/短语动词，后又新增 26 条影视高频台词、14 条电影常见习语、24 条叠词习语；全部 `exampleEn` 均含可挖空形式）；词库分批渲染与「练这 N 条」、统计页「最该复习的 5 条」、本轮草稿刷新恢复、弹框内朗读与背景 `inert`；UI 动效与配色已按 ui-studio 做有界精修与对比度验证（见 `QA.md`）；SEO/GEO 与 SSG 已落地 P0–P3（history 路由、旧 hash 重定向、build 期预渲染 13 页、分类落地页、canonical/OG/JSON-LD、robots/sitemap/llms.txt；11 类专属文案 + 练习建议 + 场景 + FAQ 及按页 `BreadcrumbList`/`CollectionPage`/`DefinedTermSet`/`FAQPage`；首页「今日一句」与分类页「5 条快练」；触屏 44px 可点区域，见 `docs/SEO.md`）；首页已宣传化（真实短语视差层、**真实数据驱动的产品演示区**、三步循环与深色结尾 CTA，训练入口与预渲染正文不变，已做 Chrome 截图复核，见 `QA.md`）。
+五种模式中的三种具体题型 + 混合、Leitner 复习、统计页、词库筛选、导入导出、主题、严格度、收藏、音色按设备能力显隐的手动朗读、加载态、自定义下拉、判定弹框与逐题对错、本轮结算页与历史最高连对（跨会话只增不减、随备份往返）、11 类 789 条短语（已完成跨分类去重，全库 `en` 唯一；补齐过高频口语/习语/短语动词，后又新增 26 条影视高频台词、14 条电影常见习语、24 条叠词习语、62 条同词重复/成对搭配习语（16 条 `X is X` + 18 条重复结构 + 28 条高频成对搭配）、24 条一词多义成对短语（60 → 84）；全部 `exampleEn` 均含可挖空形式）；词库分批渲染与「练这 N 条」、统计页「最该复习的 5 条」、本轮草稿刷新恢复、弹框内朗读与背景 `inert`；UI 动效与配色已按 ui-studio 做有界精修与对比度验证（见 `QA.md`）；SEO/GEO 与 SSG 已落地 P0–P3（history 路由、旧 hash 重定向、build 期预渲染 13 页、分类落地页、canonical/OG/JSON-LD、robots/sitemap/llms.txt；11 类专属文案 + 练习建议 + 场景 + FAQ 及按页 `BreadcrumbList`/`CollectionPage`/`DefinedTermSet`/`FAQPage`；首页「今日一句」与分类页「5 条快练」；触屏 44px 可点区域，见 `docs/SEO.md`）；首页已宣传化（真实短语视差层、**真实数据驱动的产品演示区**、三步循环与深色结尾 CTA，训练入口与预渲染正文不变，已做 Chrome 截图复核，见 `QA.md`）。
 
 ### 5.2 开发中的模块
 
@@ -303,7 +303,7 @@ Vitest，唯一测试文件 `src/lib/__tests__/core.test.ts`，当前 46 项。�
 
 ### 5.6 后续规划 / 路线图
 
-见 `docs/PRODUCT.md`「路线」：P0–P2 已完成，P3 进行中（当前 703 条，内容继续扩充）；SEO 侧 P0–P3 已完成，P4 待数据观察。架构/接口/约定变更时同步更新本文件，否则指南会快速腐化。
+见 `docs/PRODUCT.md`「路线」：P0–P2 已完成，P3 进行中（当前 789 条，内容继续扩充）；SEO 侧 P0–P3 已完成，P4 待数据观察。架构/接口/约定变更时同步更新本文件，否则指南会快速腐化。
 
 ## 6. 变更记录（本文件）
 
@@ -318,5 +318,11 @@ Vitest，唯一测试文件 `src/lib/__tests__/core.test.ts`，当前 46 项。�
 - 2026-11-20：实施 SEO P0–P2。接入 `vite-ssg@28` + `@unhead/vue@2.1.17`，路由改 history 并新增 `/phrases/:category` 分类落地页；新增 `lib/seo.ts`、`CategoryView.vue`、`scripts/postbuild.mjs`（404.html / sitemap.xml / llms.txt / 产物校验）、`public/robots.txt` 与 `public/og.png`；`build` 改为 `vue-tsc -b && vite-ssg build && node scripts/postbuild.mjs`。踩坑：`router/index.ts` 里 `createRouter(createWebHistory())` 会在构建期报 `window is not defined`，现只导出 `routes`，实例由 vite-ssg 创建；`vite-ssg@28` 的 `includedRoutes` 属于 `vite.config.ts` 的 `ssgOptions`，不在路由参数里。测试 29 → 36 项（新增旧 hash 映射、canonical、路由 robots、分类计数一致性）。
 - 2026-11-20：实施 SEO P3。新增 `data/categoryContent.ts`（11 类 intro/scenario/tips/faq，`Record<CategoryId, ...>` 强制齐全）与 `lib/daily.ts`（FNV-1a 日期哈希）；`App.vue` 用 `buildStructuredData()` 按页输出 `BreadcrumbList`/`CollectionPage`/`DefinedTermSet`/`FAQPage`（必须是函数声明，`const` 会因 `useHead` 同步求值撞 TDZ）；`HomeView` 加「今日一句」，`CategoryView` 加双卡说明、FAQ 与「5 条快练」；`llms.txt` 增判定规则与数据隐私分节；`style.css` 补每日一句/分类说明/FAQ 样式，并把触屏 `.btn`/`.chip`/`.hint-link`/`.icon-btn` 抬到 44px。测试 36 → 40 项。
 - 2026-11-20：新增本轮结算页与历史最高连对。`StudyView` 答完最后一题停在结算页（作答题数/正确率/本轮最高连对含「新纪录」徽标/明天到期 + 页脚新掌握·提示次数·历史纪录日期）；`session` 新增 `masteredAtStart`、`recordBeaten`、`syncBestCombo()`、`lastOptions`；`progress` 新增 `bestCombo` 与 `noteCombo()`；存储新增 `phraselabs:v1:best-combo` 与 `normalizeBestCombo`，`exportData` 增第 4 参数、`importData` 归一（旧备份缺字段归零），`AppData.bestCombo?` 保持 `version: 1` 不变；`srs.countDueBefore()` 供「明天到期」。浏览器实测两处真实缺陷：恢复的已完成草稿不补记历史最高、挂载即结束时不 focus，均已修。测试 40 → 46 项。
-- 2026-11-20：首页改版。今日卡补连续/已掌握/累计作答与「待复习 N 条」直达入口（`startDue` 只算学过的到期条，一次最多每日目标题量，按到期先后取）；`stat-strip` 改为站点事实（703 条 / 11 类 / 4 题型 / 0 次注册）；新增「为什么是「短语 + 键盘」」四卡；11 个分类从两列大卡片收成四列紧凑网格（保留全部内链与条数）；题型卡 3 列改 4 列；标题与数据全部来自 `phrases`/`categories`，未新增契约。踩坑：旧 preview 进程占着 4173 并让浏览器命中旧页面，截图核对 h2 文本才能发现。
+- 2026-11-20：首页改版。今日卡补连续/已掌握/累计作答与「待复习 N 条」直达入口（`startDue` 只算学过的到期条，一次最多每日目标题量，按到期先后取）；`stat-strip` 改为站点事实（789 条 / 11 类 / 4 题型 / 0 次注册）；新增「为什么是「短语 + 键盘」」四卡；11 个分类从两列大卡片收成四列紧凑网格（保留全部内链与条数）；题型卡 3 列改 4 列；标题与数据全部来自 `phrases`/`categories`，未新增契约。踩坑：旧 preview 进程占着 4173 并让浏览器命中旧页面，截图核对 h2 文本才能发现。
 - 2026-11-20：首页宣传化。`HomeView` 加真实短语视差层、滚动短语带、**真实数据驱动的产品演示区**、三步循环与深色结尾 CTA，全部训练入口原样保留；`style.css` 复用语义 token 补对应样式与响应式。动效走 `gsap.matchMedia()`：桌面做视差、移动端只做入场淡入、`prefers-reduced-motion` 直接到位；ScrollTrigger 在 `onMounted` 动态导入并 `mm.revert()` 清理，避免 SSG 构建期访问 `window`。踩坑：入场动画用 `autoAlpha:0` 会把 SSG 首屏主标题与按钮设成 `visibility:hidden`（Chrome 截图复核发现），改为纯 `y` 位移 + `clearProps`；6 条 72px 视差短语喧宾夺主，收敛为 3 条小字退到边缘。已用本机 Chrome headless 做全页截图复核，并同步 `docs/PRODUCT.md`、`docs/SEO.md`、`docs/ARCHITECTURE.md`、`QA.md`。
+
+- 2026-11-20：补充「同词重复」习语。习语新增 34 条（`idioms-106`–`idioms-139`），全部标签 `['习语', '重复']`：16 条 `X is X` 句式（`life is life`、`business is business`、`a deal is a deal`、`a promise is a promise`、`rules are rules`、`fair is fair`、`enough is enough`、`fact is fact`、`a win is a win`、`a job is a job`、`love is love`、`a bet is a bet`、`family is family`、`a game is a game`、`money is money`、`what’s mine is mine`）与 18 条重复结构（`again and again`、`little by little`、`step by step`、`day by day`、`over and over`、`time after time`、`through and through`、`side by side`、`face to face`、`hand in hand`、`one by one`、`round and round`、`neck and neck`、`back to back`、`more and more`、`bit by bit`、`word for word`、`never say never`）。总数 703 → 737，习语 104 → 138。中文释义按实际用法写，`Time is time`、`Pain is pain` 这类不存在于英语的直译句式不收；文档数字同步 README / PRODUCT / ARCHITECTURE / SEO / QA 与本文件。
+
+- 2026-11-20：继续扩展高频成对搭配。习语新增 28 条（`idioms-140`–`idioms-167`）：`now and then`、`ups and downs`、`pros and cons`、`back and forth`、`safe and sound`、`first come, first served`、`like father, like son`、`out of sight, out of mind`、`more or less`、`on and off`、`by and large`、`give and take`、`sick and tired`、`fair and square`、`hit and miss`、`here and there`、`the more, the merrier`、`rain or shine`、`come what may`、`once a cheater, always a cheater`、`no guts, no glory`、`short and sweet`、`touch and go`、`live and learn`、`then and there`、`the ins and outs`、`through thick and thin`、`easy come, easy go`。总数 737 → 765，习语 138 → 166；已先检查存量，`sooner or later`、`all in all`、`better late than never`、`no pain, no gain`、`believe it or not` 已在库不重复添加。
+
+- 2026-11-20：扩展「一词多义」。新增 12 组共 24 条（`polysemy-061`–`polysemy-084`），每组共用同一个词的两个常见义项：`take a sick leave` / `leave a message`、`take the train` / `train the dog`、`park the car` / `a city park`、`a pair of glasses` / `a glass of water`、`run a company` / `run fast`、`a lunch break` / `break the glass`、`sign a contract` / `a road sign`、`charge the phone` / `free of charge`、`watch a match` / `match the color`、`place an order` / `keep order`、`a sharp knife` / `eight o’clock sharp`、`win the race` / `the human race`；多数带 `tip` 说明同一个词的两种用法。总数 765 → 789，一词多义 60 → 84。

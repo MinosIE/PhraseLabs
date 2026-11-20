@@ -17,7 +17,7 @@ const progressStore = useProgressStore()
 const sessionStore = useSessionStore()
 const settingsStore = useSettingsStore()
 
-/** 703 条一次全渲染会让首屏和滚动都变慢，按批加载 */
+/** 789 条一次全渲染会让首屏和滚动都变慢，按批加载 */
 const PAGE_SIZE = 60
 
 const query = ref('')

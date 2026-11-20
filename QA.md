@@ -37,7 +37,7 @@
 
 ### 自动化
 
-- `pnpm check:content`（`pnpm test` 前置）：11 类 / 703 条通过。
+- `pnpm check:content`（`pnpm test` 前置）：11 类 / 789 条通过。
 - `pnpm test`：46/46 通过；`pnpm typecheck`：通过。
 - `pnpm build`：`vue-tsc -b && vite-ssg build && postbuild` 全通过，预渲染 13 页。ScrollTrigger 被拆为独立 chunk（gzip 17.57 kB），仅在浏览器侧加载。
 - 预渲染产物抽查：`dist/index.html` 含 `landing-hero` 1、`ambient-phrase` 6、`loop-step` 3、`landing-cta` 1；训练入口「开始今日训练」「浏览词库」各 2 处，「按题型开练」「按场景找短语」「练这一条」各 1 处。
