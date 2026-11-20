@@ -3,13 +3,15 @@
 ## 分层
 
 ```text
-views/        页面与交互（Home / Study / Library / Stats / Settings）
+views/        页面与交互（Home / Study / Library / Category / Stats / Settings）
 components/   可复用交互（AnswerInput / AnswerFeedback / SelectField）
 composables/  Vue 组合式工具（useDebounce）
+router/       路由表与 RouteMeta 契约（不创建 router 实例）
 stores/       Pinia：settings / progress / session
-lib/          纯函数：grade / srs / session / storage / normalize / date / speech / feedback
-data/         静态短语内容
+lib/          纯函数：grade / srs / session / storage / normalize / date / speech / feedback / seo / daily
+data/         静态短语内容 + 分类文案（categoryContent.ts）
 types/        数据契约
+scripts/      构建后处理（postbuild.mjs）
 ```
 
 依赖方向是单向的：页面 → store → lib → types/data。`lib` 不依赖 Vue，便于单元测试；内容打包进 bundle，不依赖运行时网络请求。
@@ -55,6 +57,7 @@ interface AppData {        // 导出/导入格式
   progress: Record<string, PhraseProgress>
   settings: Settings
   stats: Record<string, { reviewed: number; correct: number; learned: number }>
+  bestCombo?: { combo: number; day: string }  // 可选：旧备份没有这个字段
 }
 ```
 
@@ -67,6 +70,7 @@ interface AppData {        // 导出/导入格式
 | `phraselabs:v1:progress` | 短语 ID 到记忆状态的映射 |
 | `phraselabs:v1:settings` | 用户设置与收藏 |
 | `phraselabs:v1:stats` | 按 `YYYY-MM-DD`（本地时区）的每日统计 |
+| `phraselabs:v1:best-combo` | 历史最高连对 `{ combo, day }`，只增不减 |
 
 写入由 store 的 `watch(..., { deep: true })` 自动触发；读取失败会回退默认值，写入失败（隐私模式/容量不足）静默降级为内存态。未来升级不兼容格式时，提升前缀版本号并增加迁移函数。
 
@@ -80,6 +84,8 @@ interface AppData {        // 导出/导入格式
 4. `session` store 记录本轮正确数、连对与最佳连对，用户确认后推进到下一题；答错或接近会把当前题追加到队尾重练，计划题数（`plannedTotal`）保持不变，因此进度条分母不增长。
 5. 页面展示答案、例句和用法提示；弹框内可直接朗读正确答案，提示按钮和 `⌥H` 调用 store 的 `noteHint` 记录使用次数，不影响判定。
 6. 「这条我会了」调用 `progress.markMastered()`（`srs.masterProgress` 把盒子提到 4 并推后排期）与 `session.dropRepeat()`（只撤回队尾重练）；答案、正确率、连对与当日统计一律不改。
+7. 答完最后一题进入结算页：`session.record()` 每答对一题就把连对交给 `progress.noteCombo()`，结算前 `session.syncBestCombo()` 再补记一次（刷新恢复的已完成草稿也能写入历史记录）；`masteredGained` = 当前已掌握数 − `masteredAtStart`，`dueTomorrow` 用 `srs.countDueBefore(progress, 今天 23:59:59.999 + 1 天)` 计算，即明天结束前会到期的条数。
+8. 「再来一轮」调用 `session.start(session.lastOptions)` 沿用本轮临时范围；`lastOptions` 只存内存，刷新后回退到设置里的长期范围。
 
 ## 视觉与交互原则
 
@@ -92,9 +98,15 @@ interface AppData {        // 导出/导入格式
 - 朗读能力由设备决定：`lib/speech.ts` 的 `ensureVoices()` 只探测一次并缓存结果（含空结果），`voiceschanged` 补齐后更新缓存；`settings` store 的 `voiceAvailable` 作为全局开关，无英文音色时学习页/弹框/词库都不渲染朗读入口，设置页下拉显示不可用文案。
 - `speakEn()` 的 Promise 在 `onstart` 时就完成，加载态只覆盖「点击到出声」；`cancel()` 与 `speak()` 之间留 60ms 间隔规避 Chrome 的静默问题。
 
-## 路由与部署
+## 路由、SEO 与部署
 
-- 使用 hash 路由（`#/study`），静态托管刷新不会 404。
+- 路由是 history 模式（`/library`、`/phrases/daily`），每条可索引页面都有独立 URL 与预渲染 HTML。
+- `src/router/index.ts` **只导出 `routes` 路由表**。路由实例由 `vite-ssg` 在 `main.ts` 里按环境创建（构建期 memory history、运行期 web history），因此禁止在该文件 `createRouter`——构建期没有 `window`，web history 会直接崩。
+- 页面标题、描述、`robots`、canonical、OG/Twitter 与 JSON-LD 统一由 `src/App.vue` 的 `useHead` 按 `route.meta` 与 `src/lib/seo.ts` 输出；构建期即写成静态 HTML，不依赖客户端 JS。
+- 索引策略：`/`、`/library`、`/phrases/:category` 为 `index, follow`；`/study` 为 `noindex, follow`；`/stats`、`/settings` 为 `noindex, nofollow`。
+- 预渲染集合在 `vite.config.ts` 的 `ssgOptions.includedRoutes`：首页、词库与 11 个分类页（`dirStyle: 'flat'` → `dist/phrases/daily.html`）。应用界面不预渲染，由 `dist/404.html` + 客户端路由兜底。
+- `scripts/postbuild.mjs` 在 `vite-ssg build` 之后生成 `404.html`、`sitemap.xml`、`llms.txt` 并校验产物；它用正则从 `src/lib/seo.ts`（`SITE_URL`）、`src/data/categories.ts`（分类表）、`src/data/phrases/<id>.ts`（条数）取值，改数据即自动生效。
+- 旧 hash 链接（`#/library`）在 `main.ts` 挂载前由 `legacyHashTarget` 改写为 history 路径，书签与已收录链接不断链。
 - Vite `base` 读取 `VITE_BASE_PATH`，本地默认 `/`；GitHub Actions 构建时注入 `/<仓库名>/`。
 - `public/.nojekyll` 避免 Jekyll 处理资源目录。
 - 工作流先执行 `pnpm test` 再构建，任一失败都不会部署。
@@ -102,7 +114,8 @@ interface AppData {        // 导出/导入格式
 ## 扩展点
 
 - 新增题型：扩展 `StudyMode`，在 `lib/session.ts` 的 `resolveMode` 分配，并在 `StudyView.vue` 增加提示与判定分支。
-- 新增分类：在 `types/phrase.ts` 增加 ID、在 `data/categories.ts` 登记，并新增对应数据文件后在 `data/phrases/index.ts` 汇总。
+- 新增分类：在 `types/phrase.ts` 增加 ID、在 `data/categories.ts` 登记、在 `data/categoryContent.ts` 补一整条 intro/scenario/tips/faq（`Record<CategoryId, …>` 漏键会编译失败），并新增对应数据文件后在 `data/phrases/index.ts` 汇总；分类落地页、sitemap、llms.txt、结构化数据会自动跟随（预渲染集合读 `categories.ts`）。
+- 新增页面：在 `router/index.ts` 注册路由并给 `meta.title` / `meta.robots`，在 `App.vue` 的 `DESCRIPTIONS` 补充描述；若要参与收录，还要加入 `vite.config.ts` 的 `includedRoutes`。
 - 让任意短语集合开练：调用 `session.startWith(ids, label)`，队列会忽略分类设置、不按每日目标截断；临时分类/模式用 `session.start({ categories, mode, label })`，均不写回设置。
 - 更换存储：只需替换 `lib/storage.ts` 的读写函数，保持 `AppData` 与 `SessionDraft` 契约即可。
 
@@ -110,5 +123,5 @@ interface AppData {        // 导出/导入格式
 
 - 中文同义词依赖人工维护的 `aliases`，未收录的表达可能误判；用户可用「这条我会了」把该短语直接标为已掌握并跳过重练，但判定结果与统计不会被改写。
 - `localStorage` 通常只有几 MB，当前只存进度与统计，足够长期使用。
-- 本轮草稿依赖 `sessionStorage`，隐私模式或极旧浏览器可能不可用；不可用时退化为不落盘，刷新即重开一轮。
+- 本轮草稿依赖 `sessionStorage`，隐私模式或极旧浏览器可能不可用；不可用时退化为不落盘，刷新即重开一轮。草稿里不含 `recordBeaten`（「新纪录」徽标）与 `lastOptions`（再来一轮的范围），刷新后这两个状态重置。
 - Web Speech API 的可用性和音色由浏览器/系统决定；朗读仅为辅助，不影响作答与判定。没有英文音色时入口整体隐藏，而不是留一个点了没反应的按钮；音色在页面加载后才异步就绪的环境，会在 `voiceschanged` 后自动放出入口。
