@@ -61,7 +61,12 @@ src/
   types/
     phrase.ts            CategoryId / Level / StudyMode / ModeSetting / Phrase
     progress.ts          Settings / AppData / BestComboRecord / PhraseProgress / QueueItem / SessionDraft
-  style.css             全部全局样式与语义色变量（单文件）
+  style.css             样式入口：只写 5 条 @import，顺序即层叠顺序
+  styles/tokens.css     设计变量（亮/暗两套）、reset、排版基础
+  styles/base.css       站点外壳（导航/页脚/页面容器）、标题段落、按钮、加载与跳转链接
+  styles/home.css       首页：演示区、hero、三步循环、今日一句、特色、遗忘曲线、分类入口、FAQ
+  styles/views.css      分类页 / 学习页 / 反馈弹框 / 词库 / 统计 / 表单与弹窗（含 `@media (hover: none)`）
+  styles/responsive.css 三个全局断点（860px / 560px / reduced-motion）
   lib/__tests__/core.test.ts  唯一测试文件
 scripts/postbuild.mjs   构建后处理：404.html、sitemap.xml、llms.txt、产物校验
 scripts/validate-phrases.mjs  内容校验：id/en 唯一、别名长度、例句可挖空、分类计数与文档数字（`pretest` 自动跑）
@@ -136,7 +141,7 @@ vite.config.ts          VITE_BASE_PATH → base；ssgOptions（dirStyle + includ
 
 - 新页面放 `views/` 并在 `router/index.ts` 注册；可复用交互放 `components/`；无状态纯函数放 `lib/`；常量数据放 `data/`。
 - 业务判定/算法改动必须伴随 `lib/__tests__/core.test.ts` 的用例。
-- 主题、布局、组件外观统一改 `style.css` 的语义变量，不要在各组件里堆内联色值。
+- 主题、布局、组件外观统一改 `src/styles/tokens.css` 的语义变量，不要在各组件里堆内联色值；新增规则先看归属分片，别丢回 `style.css`。
 
 ### 2.2 命名
 
@@ -146,7 +151,7 @@ vite.config.ts          VITE_BASE_PATH → base；ssgOptions（dirStyle + includ
 
 ### 2.3 文件结构约定
 
-Vue SFC 统一 `<script setup lang="ts">` → `<template>` →（无 `<style scoped>`，样式集中在 `style.css`）。
+Vue SFC 统一 `<script setup lang="ts">` → `<template>` →（无 `<style scoped>`，样式集中在 `src/styles/`，`style.css` 只做 `@import` 入口）。
 
 ### 2.4 拆分原则
 
@@ -210,7 +215,7 @@ Vitest，唯一测试文件 `src/lib/__tests__/core.test.ts`，当前 54 项。�
 | 改 SEO 元信息 | `lib/seo.ts`（`SITE_URL`/`OG_IMAGE`）→ `App.vue` 的 `useHead` + `buildStructuredData()` → `public/robots.txt` 的 Sitemap 地址 → `core.test.ts` 的 canonical 断言 | canonical/OG 指向旧域名，sitemap 与站点不同源 |
 | 改分类文案/FAQ | `data/categoryContent.ts`（intro ≥ 80 字、scenario、3 条 tips、3 条 FAQ）→ `core.test.ts` 的长度与条数断言 → `docs/SEO.md` | FAQPage 内容与页面不一致，或文案退化成模板套话 |
 | 改朗读 | `lib/speech.ts` → `stores/settings.ts` `voiceAvailable` → `SettingsView.vue` 音色下拉 → `StudyView.vue`（答题前仅 `en-zh` 可读）/ `AnswerFeedback.vue` / `LibraryView.vue` 朗读按钮与 `⌥R`、`Ctrl+P` | loading 卡住、没音色仍显示按钮、答题前朗读泄题 |
-| 改主题/布局/配色 token | `style.css` 语义变量 → 必要时 `App.vue` `applyTheme` → `QA.md` 记录对比度实测 | 深浅主题不一致、反色卡片文字不达标 |
+| 改主题/布局/配色 token | `src/styles/tokens.css` 语义变量 → 必要时 `App.vue` `applyTheme` → `QA.md` 记录对比度实测 | 深浅主题不一致、反色卡片文字不达标 |
 
 ### 3.4 常见错误模式（真实踩坑）
 
@@ -276,7 +281,7 @@ Vitest，唯一测试文件 `src/lib/__tests__/core.test.ts`，当前 54 项。�
 | SEO / GEO 与 SSG | `docs/SEO.md` | 索引策略、路由与预渲染改造、结构化数据、llms.txt | 🟡常用 | 改路由/构建/元信息前 |
 | 下一步计划 | `docs/ROADMAP.md` | 待办优先级、每项做/不做/验收、门禁与文档同步矩阵 | 🔴必读 | 开始新一轮开发前 |
 
-快捷路由：架构问题 → `docs/ARCHITECTURE.md`；数据模型 → `src/types/` + `docs/ARCHITECTURE.md`；业务规则 → `docs/PRODUCT.md`；动效/配色 → `QA.md` + `src/style.css`；部署环境 → `vite.config.ts` + deploy workflow；内容贡献 → `docs/CONTRIBUTING.md`；收录与 SSG → `docs/SEO.md`；下一轮做什么 → `docs/ROADMAP.md`。
+快捷路由：架构问题 → `docs/ARCHITECTURE.md`；数据模型 → `src/types/` + `docs/ARCHITECTURE.md`；业务规则 → `docs/PRODUCT.md`；动效/配色 → `QA.md` + `src/styles/tokens.css`；部署环境 → `vite.config.ts` + deploy workflow；内容贡献 → `docs/CONTRIBUTING.md`；收录与 SSG → `docs/SEO.md`；下一轮做什么 → `docs/ROADMAP.md`。
 
 ## 5. 当前项目状态
 
@@ -294,7 +299,6 @@ Vitest，唯一测试文件 `src/lib/__tests__/core.test.ts`，当前 54 项。�
 
 ### 5.4 技术债务
 
-- `src/style.css`：单文件承载全部样式，随功能增长已较长；拆分需保持语义变量一致。
 - `vite.config.ts` 与 `scripts/postbuild.mjs` 各自用正则读 `src/data/categories.ts` 与 `src/lib/seo.ts`（配置层不经过 `@` 别名编译）；三处正则靠注释约定同步，改数据文件字段名时需一并检查。
 - 分类文案（`data/categoryContent.ts`）与语料分离：intro 里举了本类具体条目作例子，若日后删除或改名这些条目，文案会失真；改语料时扫一遍对应分类文案。
 
@@ -307,7 +311,7 @@ Vitest，唯一测试文件 `src/lib/__tests__/core.test.ts`，当前 54 项。�
 
 ### 5.6 后续规划 / 路线图
 
-见 `docs/PRODUCT.md`「路线」与 `docs/ROADMAP.md`：A1 线上可用性核查 → A2 高频错词本 → A3 内容自检常态化 → B1 样式拆分 / B2 移动端输入 → C1 SEO P4（待数据）/ C2 成绩卡 / C3 依赖升级；P0–P2 已完成，P3 进行中（当前 789 条，内容继续扩充）。架构/接口/约定变更时同步更新本文件，否则指南会快速腐化。
+见 `docs/PRODUCT.md`「路线」与 `docs/ROADMAP.md`：A1/A2/A3 已完成 → B1 样式拆分已完成 → B2 移动端输入 → B3 判定抽检 → C1 SEO P4（待数据）/ C2 成绩卡 / C3 依赖升级；P0–P2 已完成，P3 进行中（当前 789 条，内容继续扩充）。架构/接口/约定变更时同步更新本文件，否则指南会快速腐化。
 
 ## 6. 变更记录（本文件）
 
@@ -342,3 +346,11 @@ Vitest，唯一测试文件 `src/lib/__tests__/core.test.ts`，当前 54 项。�
 - 2026-11-20：技术债清理。删除从未被引用的脚手架资源 `src/assets/`（hero.png / vite.svg / vue.svg）与 `public/icons.svg`（6 个社交图标 symbol，无任何 `<use>` 引用，但会被拷进 dist）；移除无调用的 `lib/date.ts` `addDays`，把 `lib/speech.ts` `pickVoice` 收回为内部函数；修正 `docs/SEO.md` 测试数（40 → 50）与 §5.1「五种模式」的过时表述。
 
 - 2026-11-20：新增 `docs/ROADMAP.md`（下一步计划）：基线快照、优先级总览（A1 线上可用性核查 / A2 高频错词本 / A3 内容自检常态化 / B1 样式拆分 / B2 移动端输入 / B3 判定抽检 / C1 SEO P4 / C2 成绩卡 / C3 依赖升级）、逐项「做–不做–验收–测试–文档」、统一门禁与文档同步矩阵；§4 文档索引与 §5.6 路线图同步指向。
+
+- 2026-11-20：A1 完成。线上实测：首页/分类页/`llms.txt` 均 200，静态 HTML 已含新构建特征；`/stats`、`/study` 直访 404 由 `dist/404.html` 兼底，是「应用界面不预渲染」的既有设计。结论写入 `QA.md`。
+
+- 2026-11-20：A2 完成。新增 `lib/mistakes.ts`（错词 = 错 ≥2 次或错误率 ≥40% 且稳定度 <15 天；排序错次 → 错误率 → 稳定度）；统计页「高频错词」卡（最多 10 条）可直接开一轮错词本，词库状态筛选新增「错词」，两者共用 `isMistake`。不新增路由/存储键/`AppData` 版本。测试 50 → 54 项。
+
+- 2026-11-20：A3 完成。`scripts/validate-phrases.mjs` 末尾新增 `reportMetrics()`：难度与分类分布、别名均长、例句均长、`tip` 覆盖率，只输出不阻断；当前 L5 占 0%、`tip` 覆盖 3% 是已知内容缺口。
+
+- 2026-11-20：B1 完成。`src/style.css`（2326 行）拆成 `src/styles/{tokens,base,home,views,responsive}.css`，入口只保留 5 条 `@import`。拆分方式为**连续区段切分**（拼接后与原文件逐行 diff 一致），`@media` 顺序不变；`@media (hover: none)` 保留在 `views.css` 原位，避免上移到末尾后改变层叠结果。验证：`build` 通过且 CSS 仍单文件输出（Vite 内联 `@import`），首页/统计页深浅主题截图无异常。

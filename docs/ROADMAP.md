@@ -10,10 +10,10 @@
 | 内容 | 11 类 / 789 条短语，`pnpm check:content` 全过（id/en 唯一、别名 ≥2 汉字、`exampleEn` 可挖空、文档数字一致） |
 | 题型 | 中→英 / 英→中 / 例句填空 + 混合（`mixed` 只在生成队列时解析） |
 | 记忆 | 记忆稳定度 + 保留率 \(R=0.9^{\Delta t/S}\)，答对 ×1.9、答错 ×0.4，≥15 天算掌握；旧 Leitner `box` 自动换算为 1/1/2/4/7/15 天 |
-| 测试 | Vitest 单文件 50 项，`pretest` 自动跑内容校验 |
+| 测试 | Vitest 单文件 54 项，`pretest` 自动跑内容校验 |
 | 构建 | vite-ssg 预渲染 13 页（首页 + 词库 + 11 分类）；`postbuild` 生成 404 / sitemap / llms.txt 并校验产物 |
 | 部署 | GitHub Pages + Actions（先测后构建）；`main` 推送即发布 |
-| 已知债务 | `style.css` 单文件 2300+ 行；配置层用正则读 TS 源（`vite.config.ts` / `postbuild.mjs`）；分类文案里举例了具体条目 |
+| 已知债务 | 配置层用正则读 TS 源（`vite.config.ts` / `postbuild.mjs`）；分类文案里举例了具体条目 |
 
 ## 1. 优先级总览
 
@@ -22,7 +22,7 @@
 | A1 | 线上可用性核查 | 高（站点打不开等于 0） | 0.5 天 | 无 | 立即 | ✅ 已完成 2026-11-20 |
 | A2 | 高频错词本 | 高（补完复习闭环） | 1.5 天 | 无 | 下一迭代 | ✅ 已完成 2026-11-20 |
 | A3 | 内容自检常态化 | 中（防止口径腐化） | 0.5 天 | 无 | 下一迭代 | ✅ 已完成 2026-11-20 |
-| B1 | `style.css` 拆分 | 低（维护性） | 2 天 | A2 完成后再动，减少冲突 | R2 | 待做 |
+| B1 | `style.css` 拆分 | 低（维护性） | 2 天 | A2 完成后再动，减少冲突 | R2 | ✅ 已完成 2026-11-20 |
 | B2 | 移动端输入体验 | 中高（真实使用场景） | 1 天 | 需真机/模拟器验证 | R2 | 待做 |
 | B3 | 别名与判定抽检 | 中（减少误判） | 0.5 天/轮 | 人工语料 | R2 起常态 | 待做 |
 | C1 | SEO P4 短语详情页 | 中（长尾流量） | 3–4 天 | 上线数据观察 4–6 周 | R3 | 阻塞（缺数据） |
@@ -104,6 +104,14 @@
 
 **风险**：层叠顺序错会导致局部样式回退 → 单文件可一键 revert，故放在功能空窗期做。
 
+**落地记录（2026-11-20）**
+
+- 实际拆成 5 个分片：`tokens`（变量/reset/排版）/ `base`（外壳、标题段落、按钮）/ `home`（首页全部）/ `views`（分类页、学习页、反馈弹框、词库、统计、表单弹窗）/ `responsive`（三个断点）；`style.css` 只剩 5 条 `@import`。
+- 拆分手法是**连续区段切分**而非重新归类：拼接后与原文件逐行 `diff` 一致，层叠顺序零风险；代价是 `base` 里同时含外壳与通用组件，暂不再细分。
+- `@media (hover: none)` 留在 `views.css` 原位，**没有**上移到 `responsive.css`——移动后位于其他同名选择器之前会改变覆盖结果，与本项「不改视觉」目标冲突。
+- 验证：`pnpm build` 通过，产物 CSS 仍为单文件（Vite 内联 `@import`），体积 34.4 KB；首页与统计页深浅主题截图无异常，`.site-header` 仍为 `sticky`、`link[rel=stylesheet]` 仍只有 1 个。
+- 后续新增样式：按归属写进对应分片，不要再往 `style.css` 里塞规则。
+
 ---
 
 ### B2 · 移动端输入体验（P2）
@@ -168,7 +176,7 @@
 | 记忆/排期算法 | `lib/srs.ts` → 测试 → `PRODUCT` 记忆算法 → `ARCHITECTURE` 契约 → 首页文案（数字引用常量） |
 | 新增分类 | `CategoryId` → `categories.ts` → `categoryContent.ts` → 数据文件 → `phrases/index.ts` → 测试断言 → `sitemap`/`llms.txt` 自动 → 文档条数 |
 | 新增路由 | `router/index.ts` → `App.vue` 导航 → `ssgOptions.includedRoutes` → `postbuild` sitemap → `SEO.md` |
-| 样式层 | `style.css` 语义变量 → 必要时 `App.vue` `applyTheme` → `QA.md` 对比度 |
+| 样式层 | `src/styles/tokens.css` 语义变量 → 必要时 `App.vue` `applyTheme` → `QA.md` 对比度 |
 
 ## 5. 待决策的开放问题
 
