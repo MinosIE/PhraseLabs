@@ -7,6 +7,7 @@ import type {
   Settings,
 } from '@/types/progress'
 import { dayKey } from './date'
+import { DIFFICULTY_META } from './difficulty'
 
 const PREFIX = 'phraselabs:v1:'
 const KEYS = {
@@ -22,6 +23,7 @@ export const DEFAULT_SETTINGS: Settings = {
   mode: 'mixed',
   categories: [],
   strictness: 'normal',
+  difficulty: 'easy',
   theme: 'system',
   voiceURI: '',
   favorites: [],
@@ -53,6 +55,11 @@ function normalizeSettings(raw: Partial<Settings>): Settings {
   const settings = { ...DEFAULT_SETTINGS, ...raw }
   const mode = settings.mode as string
   if (mode === 'shadow' || mode === 'dictation') settings.mode = DEFAULT_SETTINGS.mode
+  // 老版本没有 difficulty：回退到默认档位，避免出现没有对应元数据的空档位
+  const difficulty = settings.difficulty as string
+  if (!Object.prototype.hasOwnProperty.call(DIFFICULTY_META, difficulty)) {
+    settings.difficulty = DEFAULT_SETTINGS.difficulty
+  }
   return settings
 }
 

@@ -1,19 +1,19 @@
 # 下一步计划（Roadmap）
 
 > 维护约定：每完成一项就在这里勾掉并把细节挪进 `docs/PRODUCT.md` / `docs/ARCHITECTURE.md`；新增计划先写清「做 / 不做 / 验收」，再动代码。
-> 最后更新：2026-11-22 · 适用：`main` 分支（E1 已推送，E2 已实施）
+> 最后更新：2026-11-22 · 适用：`main` 分支（E2 已实施；F1/F2 已实施，待提交）
 
 ## 0. 基线快照
 
 | 维度 | 现状 |
 | --- | --- |
 | 内容 | 11 类 / 819 条短语，`pnpm check:content` 全过（id/en 唯一、别名 ≥2 汉字、`exampleEn` 可挖空、文档数字一致） |
-| 题型 | 中→英 / 英→中 / 例句填空 + 混合（`mixed` 只在生成队列时解析） |
+| 题型 | 中→英 / 英→中 / 例句填空 + 混合（`mixed` 只在生成队列时解析，英→中占比按难度 40% / 30% / 20%） |
 | 记忆 | 记忆稳定度 + 保留率 \(R=0.9^{\Delta t/S}\)，答对 ×1.9、答错 ×0.4，≥15 天算掌握；旧 Leitner `box` 自动换算为 1/1/2/4/7/15 天 |
-| 测试 | Vitest 单文件 63 项，`pretest` 自动跑内容校验 |
+| 测试 | Vitest 单文件 68 项，`pretest` 自动跑内容校验 |
 | 构建 | vite-ssg 预渲染 13 页（首页 + 词库 + 11 分类）；`postbuild` 生成 404 / sitemap / llms.txt 并校验产物 |
 | 部署 | GitHub Pages + Actions（先测后构建）；`main` 推送即发布；PWA 产物（`sw.js` / `manifest.webmanifest`）随构建生成，`postbuild` 校验 |
-| 首屏 | 首页静态 JS 共 4 个 chunk / 74.2 KiB（gzip）：`app`（外壳 + 框架 + settings/progress store）53.8 + `HomeView` 7.8 + `progress` 7.4 + `daily`（日常口语基座，供今日一句/演示区）7.0；全量基座 28.7 与全量 `details` 30.9 都不进首屏；gsap + ScrollTrigger 首帧后按需加载 |
+| 首屏 | 首页静态 JS 共 4 个 chunk / 75.2 KiB（gzip）：`app`（外壳 + 框架 + settings/progress store + 路由进度/预取）53.5 + `HomeView` 7.6 + `progress` 7.2 + `daily`（日常口语基座，供今日一句/演示区）6.8；全量基座 28.7 与全量 `details` 30.9 都不进首屏；gsap + ScrollTrigger 首帧后按需加载 |
 | 已知债务 | 配置层用正则读 TS 源（`vite.config.ts` / `postbuild.mjs`）；分类文案里举例了具体条目 |
 
 ## 1. 优先级总览
@@ -35,6 +35,8 @@
 | D4 | 内容补齐（L5 难度 + tip 覆盖） | 中（内容纵深） | 长尾 | 无 | 持续 | 第 1 轮已完成 2026-11-21（819 条，L5 2%、tip 7%），后续继续 |
 | E1 | 首屏数据二次拆分（例句/提示懒加载） | 高（移动端首屏） | 2 天 | 无 | 紧跟 D3 | ✅ 2026-11-22（130.1 → 112.8 KiB，−13.3%） |
 | E2 | 首页去语料（入口协议 + 摘要常量） | 高（移动端首屏） | 1 天 | E1 | 紧跟 E1 | ✅ 2026-11-22（112.8 → 74.2 KiB，−34.2%） |
+| F1 | 训练难度档位（轻松 / 标准 / 挑战） | 高（降低连错挫败） | 0.5 天 | 无 | 立即 | ✅ 2026-11-22 |
+| F2 | 切页进度条 + 悬停/空闲预取 | 高（消除「假死」感） | 0.5 天 | 无 | 立即 | ✅ 2026-11-22 |
 
 ## 2. 详细方案
 
@@ -338,7 +340,59 @@ D3 只把动画库移出了关键路径；首屏最大的一块仍是全量语�
 
 ---
 
+### F 组 · 训练难度与切页反馈（2026-11-22 立项）
+
+**背景**：两个真实使用反馈：
+
+1. 「训练有点难了，一连错几个就没心思了」——默认 20 题、混合 70% 中→英，且答错一律回炉，连错时队列越练越长。
+2. 「切换页面有点慢，需要有个交互，不然页面会假死」——路由懒加载的 chunk 下载期间没有任何反馈；首页点「学习」要等学习页 + 全量基座 + 例句约 70 KiB gzip。
+
+#### F1 · 难度档位（P1）
+
+**做什么**
+
+- `types/progress.ts` 新增 `Difficulty = 'easy' | 'normal' | 'challenge'`，`Settings.difficulty` 默认 `easy`；旧设置缺字段或值未知时在 `normalizeSettings` 回退为 `easy`。
+- 新增 `lib/difficulty.ts`：档位元数据、混合题型槽位（英→中占比 40% / 30% / 20%）、回炉上限（3 / 6 / 9）、是否自动提示。
+- `lib/session.ts` 的 `resolveMode` 按档位分配混合题型；`stores/session.ts` 的 `requeueCurrent()` 到达上限后不再追加，并返回是否真的追加。
+- 轻松档连错两题自动展开提示，答对一题收起；自动提示不写入 `hintsUsed`。
+- 反馈文案区分「已排到本轮末尾」与「本轮重练已满，下一轮再见」。
+- 设置页新增「训练强度」下拉，附当前档位的一句话说明。
+
+**不做**：不改判定严格度（仍是独立设置）；不改每日目标默认值；不按用户水平自动切换档位。
+
+**验收（可复测）**
+
+- 三档混合题型的英→中数量按 20 题计为 8 / 6 / 4；标准档保持原 2 / 6 / 9 槽位。
+- 轻松档答错回炉最多 3 条，第 4 次起不再追加；标准/挑战上限为 6 / 9。
+- 轻松档连错两题后下一题出现提示框与「连错缓冲中」，答对一题后消失；提示计数不增加。
+- 旧数据导入后 `difficulty === 'easy'`；设置页切换后刷新仍保留。
+
+**落地记录（2026-11-22）**：`core.test.ts` 新增 5 项（比例、槽位、上限、回炉截断、旧设置回退），总计 68 项；浏览器实测连错两题自动提示与「轻松 → 挑战 → 刷新 → 切回」持久化通过。
+
+#### F2 · 切页进度条与预取（P1）
+
+**做什么**
+
+- `composables/useRouteProgress.ts`：`beforeEach` 启动 120ms 延迟计时，超时才显示顶部 2px 进度条；`afterEach` / `onError` 收尾。SSG 构建期直接返回恒假状态。
+- `App.vue` 渲染进度条（含读屏状态 `aria-live`），`<main>` 绑定 `aria-busy`。
+- `composables/useRoutePrefetch.ts`：悬停 / 按下 / 键盘聚焦内部链接时直接调用目标路由的懒加载函数；空闲 1.5s 后预热 `/study`；`saveData` 或 2G/3G 下跳过空闲预热。
+- CSS 进度条动画在 `prefers-reduced-motion` 下改为静态。
+
+**不做**：不引入整页遮罩或骨架屏；不改路由表与 `ssgOptions.includedRoutes`；不预取外部链接。
+
+**验收（可复测）**
+
+- 人为给 JS 加 600ms 延迟时，点击未预取页面约 146ms 出现进度条、`aria-busy="true"`，落地后消失。
+- 命中缓存或预取完成的切页不出现进度条（不闪）。
+- 悬停「词库」后 `LibraryView-*.js` 提前出现在资源列表；首页空闲后 `/study` 的 chunk 已就绪。
+- 深/浅主题、窄屏下进度条不遮挡内容；console 无报错。
+
+**落地记录（2026-11-22）**：首屏增加约 1.0 KiB gzip（74.2 → 75.2 KiB），来自进度条与预取逻辑；浏览器实测 600ms 慢网下进度条 146ms 出现、626ms 后消失，悬停预取命中 `LibraryView`，console 0 报错。
+
+---
+
 ## 3. 每次迭代的统一门禁
+
 - [ ] `pnpm check:content`（或 `pnpm test` 自动带出）
 - [ ] `pnpm test` 全绿，新增逻辑必须有用例
 - [ ] `pnpm typecheck`（`noUnusedLocals` 会拦死代码）
@@ -353,6 +407,7 @@ D3 只把动画库移出了关键路径；首屏最大的一块仍是全量语�
 | --- | --- |
 | 新增/删除题型 | `types/phrase.ts` → `HomeView` → `SettingsView` → `StudyView` → `normalizeSettings` → 测试 → `PRODUCT` / `AGENTS` §3.3 |
 | 新增设置字段 | `types/progress.ts` → `DEFAULT_SETTINGS` / `normalizeSettings` → `SettingsView` → store setter → 文档契约 |
+| 难度档位 | `lib/difficulty.ts` → `lib/session.ts` `resolveMode` → `stores/session.ts` 回炉上限 → `StudyView` 连错提示 → `SettingsView` → 测试 → `PRODUCT` / `AGENTS` |
 | 记忆/排期算法 | `lib/srs.ts` → 测试 → `PRODUCT` 记忆算法 → `ARCHITECTURE` 契约 → 首页文案（数字引用常量） |
 | 新增分类 | `CategoryId` → `categories.ts` → `categoryContent.ts` → 数据文件 → `phrases/index.ts` → 测试断言 → `sitemap`/`llms.txt` 自动 → 文档条数 |
 | 新增路由 | `router/index.ts` → `App.vue` 导航 → `ssgOptions.includedRoutes` → `postbuild` sitemap → `SEO.md` |

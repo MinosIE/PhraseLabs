@@ -23,6 +23,7 @@ import {
   verdictLabel,
 } from '@/lib/feedback'
 import { dayKey, DAY_MS } from '@/lib/date'
+import { DIFFICULTY_ORDER, repeatCapOf } from '@/lib/difficulty'
 import { errorRateOf, isMistake, pickMistakes } from '@/lib/mistakes'
 import { gradeAnswer } from '@/lib/grade'
 import { levenshtein, normalizeChinese, normalizeEnglish } from '@/lib/normalize'
@@ -50,6 +51,7 @@ import {
 } from '@/lib/storage'
 import { useSessionStore } from '@/stores/session'
 import { useProgressStore } from '@/stores/progress'
+import { useSettingsStore } from '@/stores/settings'
 import type { CategoryId, Phrase } from '@/types/phrase'
 import type { DayStats, SessionDraft } from '@/types/progress'
 
@@ -114,6 +116,9 @@ describe('反馈文案', () => {
   it('接近和答错都不打击用户', () => {
     expect(feedbackHeadline('near', 0, 1)).toContain('就差一点点')
     expect(feedbackSubline('wrong', '明天')).toContain('大脑在标记重点')
+    // 达到回炉上限时不再声称「已排到本轮末尾」
+    expect(feedbackSubline('wrong', '明天', false)).toContain('重练已满')
+    expect(feedbackSubline('near', '明天', false)).not.toContain('本轮末尾')
     expect(feedbackEncouragement('wrong', 0)).toContain('很正常')
     expect(feedbackEncouragement('wrong', 3)).toContain('优先复习')
   })
@@ -510,6 +515,48 @@ describe('session', () => {
   })
 })
 
+describe('难度档位', () => {
+  it('混合题型里英→中的比例随档位递减', () => {
+    const counts = DIFFICULTY_ORDER.map((difficulty) => {
+      const queue = buildQueue(
+        phrases,
+        {},
+        { categories: [], dailyGoal: 20, mode: 'mixed', difficulty },
+      )
+      return queue.filter((item) => item.mode === 'en-zh').length
+    })
+    expect(counts).toEqual([8, 6, 4])
+  })
+
+  it('标准档保持原来的 2 / 6 / 9 槽位', () => {
+    const queue = buildQueue(
+      phrases,
+      {},
+      { categories: [], dailyGoal: 10, mode: 'mixed', difficulty: 'normal' },
+    )
+    const slots = queue.flatMap((item, index) => (item.mode === 'en-zh' ? [index] : []))
+    expect(slots).toEqual([2, 6, 9])
+  })
+
+  it('回炉上限按轻松、标准、挑战递增', () => {
+    const caps = DIFFICULTY_ORDER.map((difficulty) => repeatCapOf(difficulty))
+    expect(caps).toEqual([3, 6, 9])
+  })
+
+  it('答错回炉达到上限后不再追加', () => {
+    setActivePinia(createPinia())
+    const settings = useSettingsStore()
+    const session = useSessionStore()
+    settings.setDifficulty('easy')
+    session.startWith(phrases.slice(0, 4).map((phrase) => phrase.id))
+
+    const results = Array.from({ length: 5 }, () => session.requeueCurrent())
+    expect(results).toEqual([true, true, true, false, false])
+    expect(session.pendingRepeats).toBe(3)
+    expect(session.repeatCap).toBe(3)
+  })
+})
+
 describe('session 草稿', () => {
   function draftWith(day: string): SessionDraft {
     return {
@@ -825,6 +872,14 @@ describe('storage', () => {
       expect(imported.settings.mode).toBe('mixed')
     }
   })
+
+  it('旧设置缺难度档位或档位未知时回退为轻松', () => {
+    const legacy = JSON.stringify({ version: 1, progress: {}, stats: {}, settings: {} })
+    expect(importData(legacy).settings.difficulty).toBe('easy')
+
+    const unknown = exportData({}, { ...settingsDefault(), difficulty: 'hard' as never }, {})
+    expect(importData(unknown).settings.difficulty).toBe('easy')
+  })
 })
 
 function settingsDefault() {
@@ -833,6 +888,7 @@ function settingsDefault() {
     mode: 'mixed' as const,
     categories: [],
     strictness: 'normal' as const,
+    difficulty: 'easy' as const,
     theme: 'system' as const,
     voiceURI: '',
     favorites: [],

@@ -24,6 +24,8 @@ const props = defineProps<{
   isLast?: boolean
   wrongCount: number
   goalReached: boolean
+  /** 刚答错的题是否真的排进了本轮队尾；达到回炉上限时为 false */
+  requeued?: boolean
   speaking?: boolean
   canSpeak?: boolean
   mastered?: boolean
@@ -48,7 +50,9 @@ const iconText = computed(() =>
 const headline = computed(() =>
   feedbackHeadline(tone.value, props.combo, props.result.distance),
 )
-const subline = computed(() => feedbackSubline(tone.value, props.nextReviewText))
+const subline = computed(() =>
+  feedbackSubline(tone.value, props.nextReviewText, props.requeued !== false),
+)
 const encouragement = computed(() =>
   feedbackEncouragement(tone.value, Math.max(0, props.wrongCount - 1)),
 )

@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
 import type { CategoryId, ModeSetting } from '@/types/phrase'
-import type { Settings, Strictness, Theme } from '@/types/progress'
+import type { Settings, Difficulty, Strictness, Theme } from '@/types/progress'
 import { loadSettings, saveSettings } from '@/lib/storage'
 import { ensureVoices, getVoices, hasEnglishVoice } from '@/lib/speech'
 
@@ -51,6 +51,10 @@ export const useSettingsStore = defineStore('settings', () => {
     settings.value.strictness = value
   }
 
+  function setDifficulty(value: Difficulty): void {
+    settings.value.difficulty = value
+  }
+
   function setTheme(value: Theme): void {
     settings.value.theme = value
   }
@@ -78,6 +82,7 @@ export const useSettingsStore = defineStore('settings', () => {
     setMode,
     toggleCategory,
     setStrictness,
+    setDifficulty,
     setTheme,
     setVoice,
     toggleFavorite,

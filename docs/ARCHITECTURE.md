@@ -5,10 +5,10 @@
 ```text
 views/        页面与交互（Home / Study / Library / Category / Stats / Settings）
 components/   可复用交互（AnswerInput / AnswerFeedback / SelectField）
-composables/  Vue 组合式工具（useDebounce）
+composables/  Vue 组合式工具（useDebounce / usePwaUpdate / useRouteProgress / useRoutePrefetch）
 router/       路由表与 RouteMeta 契约（不创建 router 实例）
 stores/       Pinia：settings / progress / session
-lib/          纯函数：grade / srs / session / storage / normalize / date / speech / feedback / seo / daily
+lib/          纯函数：grade / srs / session / storage / normalize / date / speech / feedback / seo / daily / difficulty
 data/         静态短语内容（基座 + details 两层）+ 分类文案（categoryContent.ts）
 types/        数据契约
 scripts/      构建后处理（postbuild.mjs）
@@ -56,6 +56,7 @@ interface Settings {
   mode: StudyMode | 'mixed'
   categories: CategoryId[] // 空数组代表全部
   strictness: 'strict' | 'normal' | 'lenient'
+  difficulty: 'easy' | 'normal' | 'challenge' // 训练强度：混合比例 / 回炉上限 / 连错提示
   theme: 'system' | 'light' | 'dark'
   voiceURI: string         // 空字符串代表自动挑选音色
   favorites: string[]
@@ -82,16 +83,16 @@ interface AppData {        // 导出/导入格式
 | `phraselabs:v1:stats` | 按 `YYYY-MM-DD`（本地时区）的每日统计 |
 | `phraselabs:v1:best-combo` | 历史最高连对 `{ combo, day }`，只增不减 |
 
-写入由 store 的 `watch(..., { deep: true })` 自动触发；读取失败会回退默认值，写入失败（隐私模式/容量不足）静默降级为内存态。进度记录在读取与导入时统一过 `normalizeProgress`：缺 `stability` 的旧数据按 Leitner 盒子（1/1/2/4/7/15 天）换算，缺失或非数字字段归一。未来升级不兼容格式时，提升前缀版本号并增加迁移函数。
+写入由 store 的 `watch(..., { deep: true })` 自动触发；读取失败会回退默认值，写入失败（隐私模式/容量不足）静默降级为内存态。进度记录在读取与导入时统一过 `normalizeProgress`：缺 `stability` 的旧数据按 Leitner 盒子（1/1/2/4/7/15 天）换算，缺失或非数字字段归一。`normalizeSettings` 除兼容旧题型外，还会把缺失或未知的 `difficulty` 回退为 `easy`。未来升级不兼容格式时，提升前缀版本号并增加迁移函数。
 
 本轮训练快照单独放 sessionStorage（同样前缀 `phraselabs:v1:session`）：只存当天有效的队列、当前位置、连对与逐题结果，刷新页面可继续，关掉标签页或跨天自动失效，不占长期容量。`session` store 创建时会尝试 `restore()`，失败则新建队列。
 
 ## 一次答题的数据流
 
-1. `session` store 用当前设置和进度生成队列，记录当前短语与题型；队列可以带一次性范围（临时分类、临时模式、词库指定的短语集合），不写回设置。
+1. `session` store 用当前设置和进度生成队列，记录当前短语与题型；队列可以带一次性范围（临时分类、临时模式、词库指定的短语集合），不写回设置。混合模式的英→中比例与每轮回炉上限由 `difficulty` 决定（`lib/difficulty.ts`）。
 2. 用户提交后 `lib/grade` 归一化输入并返回 `correct | near | wrong`；空输入在组件层就被拦下，不进入判定。
 3. `progress` store 调用 `applyReview` 更新记忆状态，并把结果累加到当日统计。
-4. `session` store 记录本轮正确数、连对与最佳连对，用户确认后推进到下一题；答错或接近会把当前题追加到队尾重练，计划题数（`plannedTotal`）保持不变，因此进度条分母不增长。
+4. `session` store 记录本轮正确数、连对与最佳连对，用户确认后推进到下一题；答错或接近会把当前题追加到队尾重练，计划题数（`plannedTotal`）保持不变，因此进度条分母不增长。达到档位回炉上限后 `requeueCurrent()` 返回 `false`，不再入队，反馈文案随之为「下一轮再见」。
 5. 页面展示答案、例句和用法提示；弹框内可直接朗读正确答案，提示按钮和 `⌥H` 调用 store 的 `noteHint` 记录使用次数，不影响判定。
 6. 「这条我会了」调用 `progress.markMastered()`（`srs.masterProgress` 把稳定度抬到 15 天并推后排期）与 `session.dropRepeat()`（只撤回队尾重练）；答案、正确率、连对与当日统计一律不改。
 7. 答完最后一题进入结算页：`session.record()` 每答对一题就把连对交给 `progress.noteCombo()`，结算前 `session.syncBestCombo()` 再补记一次（刷新恢复的已完成草稿也能写入历史记录）；`masteredGained` = 当前已掌握数 − `masteredAtStart`，`dueTomorrow` 用 `srs.countDueBefore(progress, 今天 23:59:59.999 + 1 天)` 计算，即明天结束前会到期的条数。
@@ -105,6 +106,7 @@ interface AppData {        // 导出/导入格式
 - `AnswerFeedback` 用 GSAP 做图标弹出、标题入场、庆祝粒子与连对里程碑；通过 `gsap.context()` 在卸载时统一清理，避免动画残留。
 - `HomeView` 的宣传动效走 `gsap.matchMedia()`：桌面做滚动视差、移动端只做入场位移、`prefers-reduced-motion` 直接到位。**gsap 与 ScrollTrigger 都不进首屏关键路径**：页面挂载后按 `requestIdleCallback`（Safari 退化 200ms）在 `setupMotion()` 里 `Promise.all` 动态导入，构建期 Node 不执行；`prefers-reduced-motion` 命中时连下载都省掉，卸载时 `mm.revert()`。首屏入场不设 `autoAlpha`，保证预渲染内容始终可见。
 - 词库搜索使用 `useDebounce` 延迟筛选，避免每次按键都遍历全库；搜索范围包含英文、中文、别名与标签。
+- 切页反馈由 `useRouteProgress` 与 `useRoutePrefetch` 负责：前者在 `beforeEach` 起 120ms 计时，超时未落地才显示顶部进度条（`afterEach` / `onError` 收尾）；后者在悬停 / 按下 / 聚焦站内链接时直接调用目标路由的懒加载函数，空闲 1.5s 后预热 `/study`，`saveData` 与 2G/3G 下跳过空闲预热。`router/index.ts` 与 `ssgOptions.includedRoutes` 均不变。
 - 词库列表按 60 条一批渲染，底部 sentinel 进入视口后自动加载下一批，819 条不会一次性进入 DOM；筛选条件变化时回到第一批，收藏或进度变化不打断浏览位置。
 - 朗读能力由设备决定：`lib/speech.ts` 的 `ensureVoices()` 只探测一次并缓存结果（含空结果），`voiceschanged` 补齐后更新缓存；`settings` store 的 `voiceAvailable` 作为全局开关，无英文音色时学习页/弹框/词库都不渲染朗读入口，设置页下拉显示不可用文案。
 - `speakEn()` 的 Promise 在 `onstart` 时就完成，加载态只覆盖「点击到出声」；`cancel()` 与 `speak()` 之间留 60ms 间隔规避 Chrome 的静默问题。
@@ -129,6 +131,7 @@ interface AppData {        // 导出/导入格式
 ## 扩展点
 
 - 新增题型：扩展 `StudyMode`，在 `lib/session.ts` 的 `resolveMode` 分配，并在 `StudyView.vue` 增加提示与判定分支。
+- 调整难度：改 `lib/difficulty.ts` 的槽位 / 回炉上限 / 自动提示，同步 `SettingsView` 的说明文案与 `core.test.ts` 断言；队列与学习页会自动跟随，不要在组件里写死比例。
 - 新增分类：在 `types/phrase.ts` 增加 ID、在 `data/categories.ts` 登记、在 `data/categoryContent.ts` 补一整条 intro/scenario/tips/faq（`Record<CategoryId, …>` 漏键会编译失败），并新增对应数据文件（基座 + `details/<分类>.ts` 详情）后在两条 barrel 汇总；分类落地 页、sitemap、llms.txt、结构化数据会自动跟随（预渲染集合读 `categories.ts`）。
 - 新增页面：在 `router/index.ts` 注册路由并给 `meta.title` / `meta.robots`，在 `App.vue` 的 `DESCRIPTIONS` 补充描述；若要参与收录，还要加入 `vite.config.ts` 的 `includedRoutes`。
 - 让任意短语集合开练：调用 `session.startWith(ids, label)`，队列会忽略分类设置、不按每日目标截断；临时分类/模式用 `session.start({ categories, mode, label })`，均不写回设置。`buildQueue` 会把传入的 `phraseIds` 与语料求交，未知 id 直接丢弃。

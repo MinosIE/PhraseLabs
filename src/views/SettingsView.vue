@@ -4,12 +4,13 @@ import SelectField from '@/components/SelectField.vue'
 import { categories } from '@/data/categories'
 import { phraseCountByCategory, phrases } from '@/data/phrases'
 import { dayKey } from '@/lib/date'
+import { DIFFICULTY_META, DIFFICULTY_ORDER } from '@/lib/difficulty'
 import { ensureVoices, hasEnglishVoice } from '@/lib/speech'
 import { exportData, importData } from '@/lib/storage'
 import { useProgressStore } from '@/stores/progress'
 import { useSettingsStore } from '@/stores/settings'
 import type { ModeSetting } from '@/types/phrase'
-import type { Strictness, Theme } from '@/types/progress'
+import type { Difficulty, Strictness, Theme } from '@/types/progress'
 
 const settingsStore = useSettingsStore()
 const progressStore = useProgressStore()
@@ -48,6 +49,10 @@ const modes: { value: ModeSetting; label: string }[] = [
   { value: 'cloze', label: '例句填空' },
 ]
 
+const difficultyOptions: { value: Difficulty; label: string }[] = DIFFICULTY_ORDER.map(
+  (value) => ({ value, label: DIFFICULTY_META[value].label }),
+)
+
 const strictnessOptions: { value: Strictness; label: string }[] = [
   { value: 'strict', label: '严格：只接受完全正确' },
   { value: 'normal', label: '标准：接近时给出提示' },
@@ -68,6 +73,10 @@ function onMode(value: string | number): void {
   settingsStore.setMode(value as ModeSetting)
 }
 
+function onDifficulty(value: string | number): void {
+  settingsStore.setDifficulty(value as Difficulty)
+}
+
 function onStrictness(value: string | number): void {
   settingsStore.setStrictness(value as Strictness)
 }
@@ -79,6 +88,10 @@ function onTheme(value: string | number): void {
 function onVoice(value: string | number): void {
   settingsStore.setVoice(String(value))
 }
+
+const difficultySummary = computed(
+  () => DIFFICULTY_META[settingsStore.settings.difficulty].summary,
+)
 
 function onExport(): void {
   const content = exportData(
@@ -144,10 +157,12 @@ function onReset(): void {
             :value="settingsStore.settings.dailyGoal" @input="onGoal" />
         </div>
         <SelectField label="默认训练模式" :model-value="settingsStore.settings.mode" :options="modes" @update:model-value="onMode" />
+        <SelectField label="训练强度" :model-value="settingsStore.settings.difficulty" :options="difficultyOptions" @update:model-value="onDifficulty" />
         <SelectField label="拼写判定严格度" :model-value="settingsStore.settings.strictness" :options="strictnessOptions" @update:model-value="onStrictness" />
         <SelectField label="主题" :model-value="settingsStore.settings.theme" :options="themeOptions" @update:model-value="onTheme" />
         <SelectField label="发音音色" :model-value="settingsStore.settings.voiceURI" :options="voiceOptions" @update:model-value="onVoice" />
       </div>
+      <p class="muted small" style="margin-top: 12px">{{ difficultySummary }}</p>
     </section>
 
     <section class="card section">

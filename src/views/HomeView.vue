@@ -122,7 +122,7 @@ const startLabel = computed(() => {
 })
 
 const modes: { value: ModeSetting; label: string; description: string }[] = [
-  { value: 'mixed', label: '混合训练', description: '推荐：七成中译英，三成英译中' },
+  { value: 'mixed', label: '混合训练', description: '推荐：中英互译混着来，比例随训练强度调整' },
   { value: 'zh-en', label: '中 → 英', description: '看中文提示，键盘写出英文短语' },
   { value: 'en-zh', label: '英 → 中', description: '看英文短语，输入对应中文意思' },
   { value: 'cloze', label: '例句填空', description: '在真实例句里补全缺失的短语' },

@@ -16,10 +16,20 @@ export function feedbackHeadline(verdict: Verdict, combo: number, distance: numb
   return '漂亮，拿下！'
 }
 
-export function feedbackSubline(verdict: Verdict, nextReviewText: string): string {
-  if (verdict === 'near') return '已经很接近了。答案就在下面，再见一面就熟了。'
+export function feedbackSubline(
+  verdict: Verdict,
+  nextReviewText: string,
+  requeued = true,
+): string {
+  if (verdict === 'near') {
+    return requeued
+      ? '已经很接近了。答案就在下面，再见一面就熟了。'
+      : '已经很接近了。答案就在下面，下一轮会早点再问。'
+  }
   if (verdict === 'wrong') {
-    return `答错不是失败，是大脑在标记重点。这道题已排到本轮末尾，${nextReviewText}还会再见。`
+    return requeued
+      ? `答错不是失败，是大脑在标记重点。这道题已排到本轮末尾，${nextReviewText}还会再见。`
+      : `答错不是失败，是大脑在标记重点。本轮重练已满，这个短语已经记下，${nextReviewText}还会再见。`
   }
   return `答对了，熟练度升了一格，${nextReviewText}再见面。`
 }

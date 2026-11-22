@@ -26,12 +26,15 @@ export interface BestComboRecord {
 
 export type Strictness = 'strict' | 'normal' | 'lenient'
 export type Theme = 'system' | 'light' | 'dark'
+/** 训练强度档位：控制混合题型比例、答错回炉上限与连错缓冲 */
+export type Difficulty = 'easy' | 'normal' | 'challenge'
 
 export interface Settings {
   dailyGoal: number
   mode: ModeSetting
   categories: CategoryId[]
   strictness: Strictness
+  difficulty: Difficulty
   theme: Theme
   /** 空字符串表示自动挑选最自然的英文音色 */
   voiceURI: string

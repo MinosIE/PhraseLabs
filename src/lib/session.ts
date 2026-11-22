@@ -1,5 +1,6 @@
 import type { CategoryId, ModeSetting, Phrase, StudyMode } from '@/types/phrase'
-import type { PhraseProgress, QueueItem, Settings } from '@/types/progress'
+import type { Difficulty, PhraseProgress, QueueItem, Settings } from '@/types/progress'
+import { isEnZhSlot } from './difficulty'
 import { pickMistakes } from './mistakes'
 import { isDue, retrievability } from './srs'
 
@@ -23,16 +24,20 @@ export function shuffle<T>(items: T[]): T[] {
   return result
 }
 
-/** 混合模式：约 70% 中→英，30% 英→中 */
-function resolveMode(setting: ModeSetting, index: number): StudyMode {
+/** 混合模式：英→中的占比由难度档位决定，其余为中→英 */
+function resolveMode(
+  setting: ModeSetting,
+  index: number,
+  difficulty: Difficulty = 'normal',
+): StudyMode {
   if (setting !== 'mixed') return setting
-  return index % 10 === 2 || index % 10 === 6 || index % 10 === 9 ? 'en-zh' : 'zh-en'
+  return isEnZhSlot(index, difficulty) ? 'en-zh' : 'zh-en'
 }
 
 export function buildQueue(
   phrases: Phrase[],
   progress: Record<string, PhraseProgress>,
-  settings: Pick<Settings, 'categories' | 'dailyGoal' | 'mode'>,
+  settings: Pick<Settings, 'categories' | 'dailyGoal' | 'mode'> & { difficulty?: Difficulty },
   now: number = Date.now(),
   scope: QueueScope = {},
 ): QueueItem[] {
@@ -72,5 +77,8 @@ export function buildQueue(
 
   return [...due, ...mistakes, ...upcoming]
     .slice(0, limit)
-    .map((phrase, index) => ({ phraseId: phrase.id, mode: resolveMode(mode, index) }))
+    .map((phrase, index) => ({
+      phraseId: phrase.id,
+      mode: resolveMode(mode, index, settings.difficulty ?? 'normal'),
+    }))
 }

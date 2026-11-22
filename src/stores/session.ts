@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
 import { phrases, phraseById } from '@/data/phrases'
 import { dayKey } from '@/lib/date'
+import { repeatCapOf } from '@/lib/difficulty'
 import { buildQueue, type QueueScope } from '@/lib/session'
 import { isMastered } from '@/lib/srs'
 import { clearSessionDraft, loadSessionDraft, saveSessionDraft } from '@/lib/storage'
@@ -51,6 +52,8 @@ export const useSessionStore = defineStore('session', () => {
   )
   /** 答错后追加到队尾的重练题数 */
   const pendingRepeats = computed(() => Math.max(0, queue.value.length - plannedTotal.value))
+  /** 本轮最多追加多少条重练，由难度档位决定；超出的错词留给下一轮 */
+  const repeatCap = computed(() => repeatCapOf(useSettingsStore().settings.difficulty))
 
   function persist(): void {
     if (!queue.value.length) return
@@ -186,11 +189,16 @@ export const useSessionStore = defineStore('session', () => {
     advanceIndex()
   }
 
-  /** 把当前题放到本轮末尾再练一次 */
-  function requeueCurrent(): void {
+  /**
+   * 把当前题放到本轮末尾再练一次；达到难度档位的回炉上限后不再追加。
+   * 返回是否真的追加，调用方据此选择「本轮重练」或「下一轮再见」的文案。
+   */
+  function requeueCurrent(): boolean {
     const item = queue.value[index.value]
-    if (!item) return
+    if (!item) return false
+    if (pendingRepeats.value >= repeatCap.value) return false
     queue.value = [...queue.value, { ...item }]
+    return true
   }
 
   function reset(): void {
@@ -233,6 +241,7 @@ export const useSessionStore = defineStore('session', () => {
     served,
     accuracy,
     pendingRepeats,
+    repeatCap,
     start,
     startWith,
     restore,

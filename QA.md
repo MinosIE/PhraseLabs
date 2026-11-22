@@ -1,5 +1,40 @@
 # QA 验证记录
 
+## 2026-11-22 · F1/F2 训练强度与切页反馈（roadmap F1/F2）
+
+### 自动化
+
+- `pnpm test`：**68/68**（63 → 68：新增三档混合比例与槽位、回炉上限与截断、旧设置回退、反馈副文案）。回炉上限由单测直接覆盖：`requeueCurrent()` 连续调用返回 `true, true, true, false, false`，`pendingRepeats` 停在 3；「本轮重练已满」文案由 `feedbackSubline` 断言。
+- `pnpm check:content`：11 类 / 819 条通过；软指标 L1 24% / L2 38% / L3 27% / L4 10% / L5 2%，`tip` 7%。
+- `pnpm typecheck` / `pnpm build` 通过，`[postbuild]` 报告「11 个分类 / 819 条短语」，预渲染 13 页。
+
+### 首屏体积（gzip，静态 import 图实测）
+
+| 阶段 | 首屏静态 JS | 变化 |
+| --- | --- | --- |
+| E2 完成 | 74.2 KiB | — |
+| F2 完成 | **75.2 KiB** | +1.0 KiB（+1.3%） |
+
+chunk 明细：`app` 53.46 + `HomeView` 7.62 + `progress` 7.24 + `daily` 6.84。增量来自 `useRouteProgress` / `useRoutePrefetch` 进入 app chunk；gsap 仍在首帧后按需加载，全量基座与 `details` 都不在首屏。
+
+### 难度档位（浏览器实测，preview :4193）
+
+- 设置页「训练强度」三档可切：轻松 → 挑战 → 刷新 → 切回轻松，选择持久化（`phraselabs:v1:settings` 的 `difficulty`）。
+- 轻松档连错两题：提示框自动展开并标注「连错两题，已自动展开」，页脚出现「连错缓冲中」，题头提示按钮显示为「已显示提示」；答对一题后自动收起。
+- 全程 console 0 报错。
+
+### 切页反馈（preview :4195，JS 延迟 600ms 的本地代理）
+
+- 点未预取的「统计」：`.route-progress` 在 **146ms** 出现，`main[aria-busy="true"]`，626ms 后消失；`StatsView` chunk `duration ≈ 604ms`，证明确实走的是慢网。
+- 悬停「词库」后再点：`LibraryView-*.js` 已由预取命中（`performance.getEntriesByType('resource')` 可见），切页几乎瞬时，进度条按设计不出现。
+- 空闲预热：首页停留约 1.5s 后 `StudyView` chunk 已在资源列表中；`prefers-reduced-motion` 下进度条为静态填充（CSS 规则）；console 全程 0 报错。
+
+### 验证注意事项
+
+- 同一 origin 重复访问会命中 HTTP 缓存（或被预取），懒加载 <120ms，进度条按设计不出现——不是缺陷。复现慢网要用**新端口（新 origin）** + 延迟返回 JS 的本地代理，别在旧缓存页面上判断。
+- 首屏 75.2 KiB 是静态 import 图的 gzip 合计，不等于线上传输（还有 HTML/CSS）。
+- 窄屏与深色主题本轮只做抽查，未重跑全量截图（布局改动仅顶部进度条与连错提示框）。
+
 ## 2026-11-22 · E2 首页去语料（roadmap E2）
 
 ### 自动化

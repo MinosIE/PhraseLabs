@@ -7,6 +7,7 @@ import { categories } from '@/data/categories'
 import { phraseById, phrases } from '@/data/phrases'
 import { detailOf } from '@/data/phrases/details'
 import { DAY_MS, dayKey, formatDate } from '@/lib/date'
+import { autoHintOf } from '@/lib/difficulty'
 import { gradeAnswer, type GradeResult } from '@/lib/grade'
 import { shuffle } from '@/lib/session'
 import { pickByTag } from '@/lib/tags'
@@ -35,6 +36,8 @@ const submitting = ref(false)
 const speaking = ref(false)
 // 本题用户实际输入的内容：结果弹框里并排给出「你的答案」，方便自查错在哪
 const submitted = ref('')
+// 本题答错后是否真的排进了本轮队尾（到达回炉上限时为 false）
+const requeued = ref(false)
 // 本题被用户标记为「我会了」，只影响重练与排期，不影响正确率
 const mastered = ref(false)
 
@@ -167,6 +170,23 @@ const hintText = computed(() => {
   return `${preview} · 共 ${words.length} 段`
 })
 
+/** 连续答错了几题：答对一题就从 0 重新计数 */
+const missStreak = computed(() => {
+  const list = sessionStore.answers
+  let streak = 0
+  for (let i = list.length - 1; i >= 0; i -= 1) {
+    if (list[i].correct) break
+    streak += 1
+  }
+  return streak
+})
+
+/** 轻松档的连错缓冲：连错两题后自动展开提示，答对一题即收起 */
+const autoHint = computed(
+  () => autoHintOf(settingsStore.settings.difficulty) && missStreak.value >= 2,
+)
+const showHint = computed(() => hintOpen.value || autoHint.value)
+
 /** 把短语转成挖空用的正则：省略号代表可插入内容，其余字符转义 */
 function clozePattern(text: string): RegExp {
   const escaped = text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -264,8 +284,10 @@ function submit(value: string): void {
     progressStore.recordAnswer(phrase.id, correct)
     sessionStore.record(correct)
     // TypeWords 式错词循环：答错/接近的题自动排到本轮末尾再练。
-    // 本轮只有 1 条时不追加——紧接着重刷同一条几乎不涨记忆，交给遗忘曲线排期
-    if (!correct && sessionStore.plannedTotal > 1) sessionStore.requeueCurrent()
+    // 本轮只有 1 条时不追加——紧接着重刷同一条几乎不涨记忆，交给遗忘曲线排期；
+    // 难度档位给回炉设了上限，超出部分留给下一轮，避免队列越练越长
+    requeued.value =
+      !correct && sessionStore.plannedTotal > 1 ? sessionStore.requeueCurrent() : false
     const after = progressStore.stats[dayKey()]?.reviewed ?? 0
     if (before < settingsStore.settings.dailyGoal && after >= settingsStore.settings.dailyGoal) {
       goalReached.value = true
@@ -589,8 +611,9 @@ onUnmounted(() => {
             </template>
           </div>
 
-          <div v-if="hintOpen && !revealed" class="hint-box" role="status">
+          <div v-if="showHint && !revealed" class="hint-box" role="status">
             {{ hintText }}
+            <span v-if="autoHint && !hintOpen" class="muted"> · 连错两题，已自动展开</span>
           </div>
 
           <div class="answer-section">
@@ -601,7 +624,7 @@ onUnmounted(() => {
               :question-key="inputKey"
               :disabled="revealed"
               :loading="submitting"
-              :hint-active="hintOpen"
+              :hint-active="showHint"
               @submit="submit"
               @skip="skip"
               @hint="toggleHint"
@@ -611,6 +634,7 @@ onUnmounted(() => {
           <div class="study-card-foot">
             <span>
               本轮正确率 {{ sessionStore.accuracy }}% · 提示 {{ sessionStore.hintsUsed }} 次
+              <template v-if="autoHint"> · 连错缓冲中</template>
               <template v-if="sessionStore.pendingRepeats">
                 · 待重练 {{ sessionStore.pendingRepeats }} 题
               </template>
@@ -705,6 +729,7 @@ onUnmounted(() => {
             :is-last="isLastQuestion"
             :wrong-count="wrongCount"
             :goal-reached="goalReached"
+            :requeued="requeued"
             :speaking="speaking"
             :can-speak="settingsStore.voiceAvailable"
             :mastered="mastered"
