@@ -4,6 +4,7 @@ import AnswerInput from '@/components/AnswerInput.vue'
 import AnswerFeedback from '@/components/AnswerFeedback.vue'
 import { categories } from '@/data/categories'
 import { phraseById, phrases } from '@/data/phrases'
+import { detailOf } from '@/data/phrases/details'
 import { DAY_MS, dayKey, formatDate } from '@/lib/date'
 import { gradeAnswer, type GradeResult } from '@/lib/grade'
 import { shuffle } from '@/lib/session'
@@ -171,13 +172,14 @@ function clozePattern(text: string): RegExp {
 const clozeSentence = computed(() => {
   const phrase = current.value?.phrase
   if (!phrase) return ''
+  const { exampleEn } = detailOf(phrase.id)
   // 含 one's / someone / your 的短语在例句里只会出现具体形式，用 enAliases 兜底
   const forms = [phrase.en, ...(phrase.enAliases ?? [])]
   for (const form of forms) {
     const pattern = clozePattern(form)
-    if (pattern.test(phrase.exampleEn)) return phrase.exampleEn.replace(pattern, '______')
+    if (pattern.test(exampleEn)) return exampleEn.replace(pattern, '______')
   }
-  return phrase.exampleEn
+  return exampleEn
 })
 
 /**
@@ -517,17 +519,17 @@ onUnmounted(() => {
           <div class="prompt-block">
             <template v-if="current.mode === 'zh-en'">
               <p class="prompt">{{ current.phrase.zh }}</p>
-              <p class="prompt-context">{{ current.phrase.exampleZh }}</p>
+              <p class="prompt-context">{{ detailOf(current.phrase.id).exampleZh }}</p>
             </template>
 
             <template v-else-if="current.mode === 'en-zh'">
               <p class="prompt">{{ current.phrase.en }}</p>
-              <p class="prompt-context">{{ current.phrase.exampleEn }}</p>
+              <p class="prompt-context">{{ detailOf(current.phrase.id).exampleEn }}</p>
             </template>
 
             <template v-else>
               <p class="prompt small-prompt">{{ clozeSentence }}</p>
-              <p class="prompt-context">{{ current.phrase.exampleZh }}</p>
+              <p class="prompt-context">{{ detailOf(current.phrase.id).exampleZh }}</p>
             </template>
           </div>
 
@@ -638,6 +640,7 @@ onUnmounted(() => {
           <AnswerFeedback
             :result="result"
             :phrase="current.phrase"
+            :detail="detailOf(current.phrase.id)"
             :combo="sessionStore.combo"
             :day-reviewed="dayReviewed"
             :daily-goal="settingsStore.settings.dailyGoal"

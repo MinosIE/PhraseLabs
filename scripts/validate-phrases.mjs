@@ -28,13 +28,15 @@ async function loadData() {
     server: { middlewareMode: true },
   })
   try {
-    const [phraseModule, categoryModule, normalizeModule] = await Promise.all([
+    const [phraseModule, detailModule, categoryModule, normalizeModule] = await Promise.all([
       server.ssrLoadModule('/src/data/phrases/index.ts'),
+      server.ssrLoadModule('/src/data/phrases/details/index.ts'),
       server.ssrLoadModule('/src/data/categories.ts'),
       server.ssrLoadModule('/src/lib/normalize.ts'),
     ])
     return {
       phrases: phraseModule.phrases,
+      phraseDetails: detailModule.phraseDetails,
       phraseCountByCategory: phraseModule.phraseCountByCategory,
       categories: categoryModule.categories,
       normalizeChinese: normalizeModule.normalizeChinese,
@@ -47,6 +49,7 @@ async function loadData() {
 
 function validatePhrases({
   phrases,
+  phraseDetails,
   phraseCountByCategory,
   categories,
   normalizeChinese,
@@ -71,7 +74,6 @@ function validatePhrases({
       problems.push(`${phrase.id} 的 en「${phrase.en}」是孤立单词，必须含空格或连字符`)
     }
     if (!phrase.zh?.trim()) problems.push(`${phrase.id} 缺少中文释义`)
-    if (!phrase.exampleZh?.trim()) problems.push(`${phrase.id} 缺少中文例句`)
     if (!Number.isInteger(phrase.level) || phrase.level < 1 || phrase.level > 5) {
       problems.push(`${phrase.id} 的难度 ${phrase.level} 不在 1–5`)
     }
@@ -84,9 +86,25 @@ function validatePhrases({
     }
 
     const forms = [phrase.en, ...(phrase.enAliases ?? [])].filter(Boolean)
-    if (!forms.some((form) => clozePattern(form).test(phrase.exampleEn ?? ''))) {
-      problems.push(`${phrase.id} 的例句没有包含「${phrase.en}」，例句填空题挖不出空`)
+    // 例句与提示存在 details 模块里：基础条目不重复存一份，避免首页为全量例句买单
+    const detail = phraseDetails[phrase.id]
+    if (!detail) {
+      problems.push(`${phrase.id} 缺少例句详情（data/phrases/details/）`)
+    } else {
+      if (!detail.exampleEn?.trim()) problems.push(`${phrase.id} 缺少英文例句`)
+      if (!detail.exampleZh?.trim()) problems.push(`${phrase.id} 缺少中文例句`)
+      if (!forms.some((form) => clozePattern(form).test(detail.exampleEn ?? ''))) {
+        problems.push(`${phrase.id} 的例句没有包含「${phrase.en}」，例句填空题挖不出空`)
+      }
     }
+  }
+
+  const detailIds = Object.keys(phraseDetails)
+  if (detailIds.length !== phrases.length) {
+    problems.push(`例句详情 ${detailIds.length} 条与短语 ${phrases.length} 条不一致`)
+  }
+  for (const id of detailIds) {
+    if (!seenIds.has(id)) problems.push(`例句详情里有孤儿条目：${id}`)
   }
 
   const registered = new Set(categories.map((category) => category.id))
@@ -134,7 +152,7 @@ async function checkDocs(total, categoryCount, problems) {
 }
 
 /** 软指标：只输出不判定，帮助发现「内容偏斜」（难度堆在一级、别名过短、例句过短、秘诀覆盖率低） */
-function reportMetrics({ phrases, categories, normalizeChinese }) {
+function reportMetrics({ phrases, phraseDetails, categories, normalizeChinese }) {
   const levels = new Map()
   let aliasChars = 0
   let aliasCount = 0
@@ -147,8 +165,8 @@ function reportMetrics({ phrases, categories, normalizeChinese }) {
       aliasChars += normalizeChinese(alias).length
       aliasCount += 1
     }
-    exampleWords += (phrase.exampleEn ?? '').trim().split(/\s+/).filter(Boolean).length
-    if (phrase.tip?.trim()) withTip += 1
+    exampleWords += (phraseDetails[phrase.id]?.exampleEn ?? '').trim().split(/\s+/).filter(Boolean).length
+    if (phraseDetails[phrase.id]?.tip?.trim()) withTip += 1
   }
 
   const total = phrases.length || 1

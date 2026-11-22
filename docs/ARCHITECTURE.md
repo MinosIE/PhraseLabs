@@ -9,7 +9,7 @@ composables/  Vue 组合式工具（useDebounce）
 router/       路由表与 RouteMeta 契约（不创建 router 实例）
 stores/       Pinia：settings / progress / session
 lib/          纯函数：grade / srs / session / storage / normalize / date / speech / feedback / seo / daily
-data/         静态短语内容 + 分类文案（categoryContent.ts）
+data/         静态短语内容（基座 + details 两层）+ 分类文案（categoryContent.ts）
 types/        数据契约
 scripts/      构建后处理（postbuild.mjs）
 ```
@@ -28,11 +28,19 @@ interface Phrase {
   category: CategoryId
   tags: string[]
   level: 1 | 2 | 3 | 4 | 5
+}
+
+// 例句与提示单独存放（data/phrases/details/<分类>.ts，按 id 索引）
+interface PhraseDetail {
   exampleEn: string
   exampleZh: string
   tip?: string
 }
+```
 
+基座（`data/phrases/<分类>.ts`）与详情（`data/phrases/details/<分类>.ts`）是两条 barrel：`data/phrases/index.ts` 只聚合基座，`data/phrases/details/index.ts` 聚合详情。首页只引 `details/daily`，学习页 / 词库 / 分类页才引全量详情；否则例句会把首页首屏体积翻回去（见 `docs/ROADMAP.md` E1）。
+
+```ts
 interface PhraseProgress {
   stability: number      // 记忆稳定度（天）：到期时保留率降到 90%
   correct: number
@@ -119,11 +127,11 @@ interface AppData {        // 导出/导入格式
 ## 扩展点
 
 - 新增题型：扩展 `StudyMode`，在 `lib/session.ts` 的 `resolveMode` 分配，并在 `StudyView.vue` 增加提示与判定分支。
-- 新增分类：在 `types/phrase.ts` 增加 ID、在 `data/categories.ts` 登记、在 `data/categoryContent.ts` 补一整条 intro/scenario/tips/faq（`Record<CategoryId, …>` 漏键会编译失败），并新增对应数据文件后在 `data/phrases/index.ts` 汇总；分类落地页、sitemap、llms.txt、结构化数据会自动跟随（预渲染集合读 `categories.ts`）。
+- 新增分类：在 `types/phrase.ts` 增加 ID、在 `data/categories.ts` 登记、在 `data/categoryContent.ts` 补一整条 intro/scenario/tips/faq（`Record<CategoryId, …>` 漏键会编译失败），并新增对应数据文件（基座 + `details/<分类>.ts` 详情）后在两条 barrel 汇总；分类落地 页、sitemap、llms.txt、结构化数据会自动跟随（预渲染集合读 `categories.ts`）。
 - 新增页面：在 `router/index.ts` 注册路由并给 `meta.title` / `meta.robots`，在 `App.vue` 的 `DESCRIPTIONS` 补充描述；若要参与收录，还要加入 `vite.config.ts` 的 `includedRoutes`。
 - 让任意短语集合开练：调用 `session.startWith(ids, label)`，队列会忽略分类设置、不按每日目标截断；临时分类/模式用 `session.start({ categories, mode, label })`，均不写回设置。
 - 更换存储：只需替换 `lib/storage.ts` 的读写函数，保持 `AppData` 与 `SessionDraft` 契约即可。
-- 内容校验：`scripts/validate-phrases.mjs` 借 Vite 的 SSR 加载器直接 import TS 数据（不写正则解析），检查 `id`/`en` 唯一、短语形态、别名长度、例句可挖空、分类计数与 README/PRODUCT 数字；挂在 `package.json` 的 `pretest`，`pnpm test` 前自动执行。
+- 内容校验：`scripts/validate-phrases.mjs` 借 Vite 的 SSR 加载器直接 import TS  数据（不写正则解析），检查 `id`/`en` 唯一、短语形态、别名长度、例句可挖空、基座与详情一一对应（每条都有 detail、无孤儿 detail）、分类计数与 README/PRODUCT 数字；挂在 `package.json` 的 `pretest`，`pnpm test` 前自动执行。
 
 ## 已知边界
 

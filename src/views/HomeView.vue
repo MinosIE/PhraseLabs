@@ -3,6 +3,10 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { categories } from '@/data/categories'
 import { phraseById, phraseCountByCategory, phrases, tagCounts } from '@/data/phrases'
+import { dailyPhrases } from '@/data/phrases/daily'
+// 只引日常口语的例句：首页不该为 819 条例句买单，其余分类留给学习/词库/分类页
+import { dailyDetails } from '@/data/phrases/details/daily'
+import type { PhraseDetail } from '@/types/phrase'
 import { pickDaily } from '@/lib/daily'
 import { dayKey } from '@/lib/date'
 import { shuffle } from '@/lib/session'
@@ -171,9 +175,14 @@ function startTag(tag: string): void {
   void router.push('/study')
 }
 
-/** 今日一句：同一天内稳定，跨天自动换，目的是让访客先看到“一句真能用的话” */
-const daily = computed(() => pickDaily(phrases, dayKey()))
+/** 今日一句：只从日常口语池取（同一天内稳定，跨天自动换）；池子限于 daily 是为了不把全量例句拉进首屏 */
+const daily = computed(() => pickDaily(dailyPhrases, dayKey()))
 const speaking = ref(false)
+
+const NO_DETAIL: PhraseDetail = { exampleEn: '', exampleZh: '' }
+const dailyDetail = computed(() =>
+  daily.value ? (dailyDetails[daily.value.id] ?? NO_DETAIL) : NO_DETAIL,
+)
 
 function practiseDaily(): void {
   if (!daily.value) return
@@ -208,8 +217,9 @@ const ribbonText = computed(() =>
 
 /** 演示区用真实短语与例句，展示「看提示 → 写出 → 判定」的完整闭环 */
 const demoPhrase = computed(
-  () => phrases.find((phrase) => phrase.en === 'a little bit') ?? phrases[0],
+  () => dailyPhrases.find((phrase) => phrase.en === 'a little bit') ?? dailyPhrases[0],
 )
+const demoDetail = computed(() => dailyDetails[demoPhrase.value.id] ?? NO_DETAIL)
 
 const root = ref<HTMLElement | null>(null)
 /** 只用到 revert；这里不写 gsap 的类型，否则类型引用会把 gsap 拉回静态依赖图 */
@@ -381,7 +391,7 @@ onUnmounted(() => {
         <div class="phrase-main daily-text">
           <span class="phrase-en">{{ daily.en }}</span>
           <div class="phrase-zh">{{ daily.zh }}</div>
-          <div class="phrase-example">{{ daily.exampleEn }} — {{ daily.exampleZh }}</div>
+          <div class="phrase-example">{{ dailyDetail.exampleEn }} — {{ dailyDetail.exampleZh }}</div>
         </div>
         <div class="daily-actions">
           <button class="btn btn-primary" type="button" @click="practiseDaily">
@@ -456,7 +466,7 @@ onUnmounted(() => {
           <span class="demo-check" aria-hidden="true">✓</span>
           <div>
             <strong>答对了</strong>
-            <p>{{ demoPhrase.exampleEn }}</p>
+            <p>{{ demoDetail.exampleEn }}</p>
           </div>
         </div>
         <div class="demo-stage-foot">

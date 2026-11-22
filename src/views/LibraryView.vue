@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import SelectField from '@/components/SelectField.vue'
 import { categories, categoryName } from '@/data/categories'
 import { phraseCountByCategory, phrases, tagCounts } from '@/data/phrases'
+import { detailOf } from '@/data/phrases/details'
 import { useDebounce } from '@/composables/useDebounce'
 import { isMistake } from '@/lib/mistakes'
 import { isDue, isMastered } from '@/lib/srs'
@@ -288,7 +289,9 @@ function onSort(value: string | number): void {
             <span v-else-if="isDue(progressStore.progress[phrase.id])" class="badge due">待复习</span>
           </div>
           <div class="phrase-zh">{{ phrase.zh }}</div>
-          <div class="phrase-example">{{ phrase.exampleEn }} — {{ phrase.exampleZh }}</div>
+          <div class="phrase-example">
+            {{ detailOf(phrase.id).exampleEn }} — {{ detailOf(phrase.id).exampleZh }}
+          </div>
           <div style="margin-top: 9px; display: flex; gap: 6px; flex-wrap: wrap">
             <span class="badge">{{ categoryName(phrase.category) }}</span>
             <span class="badge">难度 {{ phrase.level }}</span>

@@ -4,6 +4,7 @@ import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { contentOf } from '@/data/categoryContent'
 import { categories } from '@/data/categories'
 import { phraseCountByCategory, phrases } from '@/data/phrases'
+import { detailOf } from '@/data/phrases/details'
 import { useSessionStore } from '@/stores/session'
 
 const route = useRoute()
@@ -125,7 +126,7 @@ function startQuick(): void {
             <span v-if="phrase.enAliases?.length" class="badge">变体：{{ phrase.enAliases.join(' / ') }}</span>
           </div>
           <div class="phrase-zh">{{ phrase.zh }}</div>
-          <div class="phrase-example">{{ phrase.exampleEn }} — {{ phrase.exampleZh }}</div>
+          <div class="phrase-example">{{ detailOf(phrase.id).exampleEn }} — {{ detailOf(phrase.id).exampleZh }}</div>
           <div style="margin-top: 9px; display: flex; gap: 6px; flex-wrap: wrap">
             <span class="badge">难度 {{ phrase.level }}</span>
             <span v-for="tag in phrase.tags" :key="tag" class="badge">{{ tag }}</span>

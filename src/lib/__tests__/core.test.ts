@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import { phrases, phraseById, phraseCountByCategory, tagCounts } from '@/data/phrases'
+import { detailOf, phraseDetails } from '@/data/phrases/details'
 import { categories } from '@/data/categories'
 import { categoryContent, contentOf } from '@/data/categoryContent'
 import { hashDay, pickDaily } from '@/lib/daily'
@@ -251,8 +252,6 @@ describe('主题标签', () => {
     category: 'connectors',
     tags,
     level: 1,
-    exampleEn: 'In the end we left.',
-    exampleZh: '最后我们走了。',
   })
 
   it('按条数降序、同条数按名称排，并跳过无标签条目', () => {
@@ -573,9 +572,19 @@ describe('内容数据', () => {
     }
     const broken = phrases.filter((phrase) => {
       const forms = [phrase.en, ...(phrase.enAliases ?? [])]
-      return !forms.some((form) => toPattern(form).test(phrase.exampleEn))
+      return !forms.some((form) => toPattern(form).test(detailOf(phrase.id).exampleEn))
     })
     expect(broken.map((phrase) => phrase.id)).toEqual([])
+  })
+
+  it('基础语料与例句详情一一对应，没有孤儿详情', () => {
+    const baseIds = new Set(phrases.map((phrase) => phrase.id))
+    const detailIds = Object.keys(phraseDetails)
+    expect(detailIds.length).toBe(baseIds.size)
+    const orphan = detailIds.filter((id) => !baseIds.has(id))
+    expect(orphan).toEqual([])
+    const missing = phrases.filter((phrase) => !detailOf(phrase.id).exampleEn)
+    expect(missing.map((phrase) => phrase.id)).toEqual([])
   })
 })
 

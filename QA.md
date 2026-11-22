@@ -1,5 +1,41 @@
 # QA 验证记录
 
+## 2026-11-22 · E1 首屏数据二次拆分（roadmap E1）
+
+### 自动化
+
+- 数据迁移：819 条从旧语料按字段重排为「基座 + details」，脚本逐条比对 `id/en/zh/aliases/enAliases/tags/level/exampleEn/exampleZh/tip` 全部一致，且无孤儿 detail；脚本用后已删。
+- `pnpm check:content`：11 类 / 819 条通过；新增两类硬校验（每条都有 detail、无孤儿 detail），原「例句可挖空」改从 detail 读；软指标回到 L1 24% / L2 38% / L3 27% / L4 10% / L5 2%，例句均 7.9 词，`tip` 7%。
+- `pnpm test`：**62/62**（新增「基座与详情一一对应」）；`pnpm typecheck` / `pnpm build` 通过，`[postbuild]` 报告「11 个分类 / 819 条短语」。
+
+### 首屏体积（gzip，静态 import 图实测）
+
+| 阶段 | 首屏静态 JS | 变化 |
+| --- | --- | --- |
+| D3 完成 | 130.1 KiB | — |
+| E1 完成 | **112.8 KiB** | **−17.3 KiB（−13.3%）** |
+
+chunk 明细：`app` 30.9 + 共享（settings 视图/基座语料/store）66.8 + `HomeView` 8.0 + `details/daily` 7.0 + `session` 1.8 + `progress` 1.0。全量 `details` 30.9 KiB 不在首屏。
+
+> 为什么不是预估的 −35%：例句按字符占 49.3%，但自然语言 gzip 压缩率低，实测只占原语料体积 33%；另外首页经 `stores/session.ts` 仍持有全量基座语料。详见 `docs/ROADMAP.md` E1 落地记录。
+
+### 预渲染产物
+
+`dist/` 13 个页面逐页统计 `phrase-example` 节点：首页 1、词库 60（首批）、11 个分类页分别为 60/54/44/148/44/174/77/84/44/44/46，与各分类条数一致。
+
+### 浏览器实测（preview :4191）
+
+- `/`：今日一句 `not gonna lie` 的例句「Not gonna lie, that movie scared me. — 说实话，那部电影把我吓到了。」正常；演示区例句 `I'm a little bit tired today.` 正常。
+- `/study`（zh-en）：提示区中文例句正常；切到「例句填空」模式后句子为 `After that hike, ______.`，挖空与中文提示正常。
+- `/library`：第一条 `catch up with` 的例句 `/ 中文` 正常。
+- `/phrases/academic`：60 条，第一条 `in light of` 的例句正常。
+- Console 错误 0、未捕获异常 0、hydration mismatch 警告 0。
+
+### 未验证 / 边界
+
+- 未升级为真实移动端大包体测量；112.8 KiB 是静态 import 图的 gzip 合计，不等于线上实际传输（还有 HTML 与 CSS）。
+- 今日一句池子从全库改为日常口语 148 条，属于产品取舍，已在 `docs/PRODUCT.md` 与 ROADMAP 记录；用户侧可见变化是轮换范围变窄。
+
 ## 2026-11-21 · D4 内容补齐第 1 轮（roadmap D4）
 
 ### 自动化

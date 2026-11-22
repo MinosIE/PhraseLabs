@@ -1,7 +1,7 @@
 # 下一步计划（Roadmap）
 
 > 维护约定：每完成一项就在这里勾掉并把细节挪进 `docs/PRODUCT.md` / `docs/ARCHITECTURE.md`；新增计划先写清「做 / 不做 / 验收」，再动代码。
-> 最后更新：2026-11-21 · 适用：`main` 分支（当前 `9d093aa`）
+> 最后更新：2026-11-22 · 适用：`main` 分支（当前 E1 待提交）
 
 ## 0. 基线快照
 
@@ -10,10 +10,10 @@
 | 内容 | 11 类 / 819 条短语，`pnpm check:content` 全过（id/en 唯一、别名 ≥2 汉字、`exampleEn` 可挖空、文档数字一致） |
 | 题型 | 中→英 / 英→中 / 例句填空 + 混合（`mixed` 只在生成队列时解析） |
 | 记忆 | 记忆稳定度 + 保留率 \(R=0.9^{\Delta t/S}\)，答对 ×1.9、答错 ×0.4，≥15 天算掌握；旧 Leitner `box` 自动换算为 1/1/2/4/7/15 天 |
-| 测试 | Vitest 单文件 61 项，`pretest` 自动跑内容校验 |
+| 测试 | Vitest 单文件 62 项，`pretest` 自动跑内容校验 |
 | 构建 | vite-ssg 预渲染 13 页（首页 + 词库 + 11 分类）；`postbuild` 生成 404 / sitemap / llms.txt 并校验产物 |
 | 部署 | GitHub Pages + Actions（先测后构建）；`main` 推送即发布；PWA 产物（`sw.js` / `manifest.webmanifest`）随构建生成，`postbuild` 校验 |
-| 首屏 | 首页静态 JS 共 5 个 chunk / 130.1 KiB（gzip）：`settings`（全量语料）92.3 + `app` 30.4 + `HomeView` 7.8 + `session`/`progress` 2.8；gsap + ScrollTrigger 首帧后按需加载 |
+| 首屏 | 首页静态 JS 共 6 个 chunk / 112.8 KiB（gzip）：`settings`（基座语料 + 共享 store）66.8 + `app` 30.9 + `HomeView` 8.0 + `details/daily` 7.0 + `session`/`progress` 2.8；全量 `details` 30.9 KiB 不进首屏；gsap + ScrollTrigger 首帧后按需加载 |
 | 已知债务 | 配置层用正则读 TS 源（`vite.config.ts` / `postbuild.mjs`）；分类文案里举例了具体条目 |
 
 ## 1. 优先级总览
@@ -33,6 +33,7 @@
 | D2 | PWA 离线与主屏安装 | 中高（习惯养成 / 断网可用） | 1 天 | D1 后做，避免合并冲突 | 紧随 D1 | ✅ 已完成 2026-11-21 |
 | D3 | 首屏瘦身（动画库移出关键路径） | 中（移动端首屏） | 0.5 天 | 依赖 D2 的缓存策略 | R4 | ✅ 2026-11-21 |
 | D4 | 内容补齐（L5 难度 + tip 覆盖） | 中（内容纵深） | 长尾 | 无 | 持续 | 第 1 轮已完成 2026-11-21（819 条，L5 2%、tip 7%），后续继续 |
+| E1 | 首屏数据二次拆分（例句/提示懒加载） | 高（移动端首屏） | 2 天 | 无 | 紧跟 D3 | ✅ 2026-11-22（130.1 → 112.8 KiB，−13.3%） |
 
 ## 2. 详细方案
 
@@ -262,10 +263,49 @@
 - 已先查重：候选里 `with respect to`、`give rise to`、`in accordance with`、`touch base with`、`in the pipeline`、`off the top of my head`、`bite the bullet`、`up in the air` 等存量已有，全部剔除。
 - **下一轮建议**：继续补 L5（目标 5%+），优先合同/学术高频（`insofar as`、`notwithstanding`、`on the premise that`）与口述型习语；每轮 20–30 条，保持一主题一提交。
 
+### E 组 · 首屏数据瘦身（2026-11-22 立项）
+
+D3 只把动画库移出了关键路径；首屏最大的一块仍是全量语料（92.3 KiB gz）。按字段实测（819 条、字段字符总量 85192）：`exampleEn`+`exampleZh` 占 **49.3%**，`tip` 1.7%，其余 49.0%。因此「按字段拆」而不是「按分类拆」才是真正有效的那一刀。
+
+#### E1 · 例句与提示改为按需模块（P1）
+
+**做什么**
+
+- 类型拆成两份：`Phrase` 只留 `id/en/zh/aliases/enAliases/category/tags/level`；新增 `PhraseDetail { exampleEn, exampleZh, tip? }`。
+- 语料字段重排：`data/phrases/<分类>.ts` 只留基础字段；例句/提示移到 `data/phrases/details/<分类>.ts`，导出 `Record<string, PhraseDetail>`。
+- 新增 `data/phrases/details/index.ts` 聚合 `phraseDetails`，但 **`data/phrases/index.ts` 不 import 它**——基座与详情两条 barrel 彻底分开，首页才不会被详情拖回全量。
+- 首页只静态 import `details/daily`：用于「今日一句」与演示区；其余页面（学习 / 词库 / 分类）静态 import `details`（全量）。
+- `AnswerFeedback` 改为接收 `detail` prop，例句与 `tip` 都从它取。
+
+**不做**：不改判定/排期算法；不做运行时 fetch（仍是打包进 bundle 的静态 chunk）；不给详情做单独的 URL/SEO 页。
+
+**产品取舍（写清楚免得后人看不懂）**：今日一句改为**只从日常口语池取**（原来从全库 819 条取）。理由：首页若允许任意分类，就必须静态 import 全量详情，E1 收益归零；而今日一句的文案本就是「今天带走一句，晚上就能用」，限定口语池更贴题。演示区 `a little bit` 本来就属日常口语，不受影响。
+
+**验收（可复测）**
+
+- 首页首屏静态 JS 从 130.1 KiB gz 降到 **≤ 115 KiB**；首页 chunk 图里不出现 `phraseDetails`（全量）模块，只应出现 `details/daily`。
+- `check:content` 新增两类硬校验：每条短语都有对应 detail；不存在孤儿 detail 键。原「例句可挖空」校验改从 detail 读。
+- 学习页（含 cloze）、词库、分类页、结果弹框的例句与 `tip` 显示不变；13 页预渲染 HTML 仍逐页包含例句文本（抽查 `grep example`）。
+- `pnpm test` / `typecheck` / `build` 全过，测试数只增不减。
+
+**风险**
+
+- 数据重排是一次大 diff：用一次性脚本从旧数据生成新文件，生成后逐条比对 `id/en/zh/aliases/tags/level` 与例句、提示完全一致，再删脚本。
+- 详情键用 `id` 而不是数组下标，避免顺序耦合；`phraseDetails` 缺失时页面降级为不显示例句（不白屏、不报错）。
+
+**落地记录（2026-11-22）**
+
+- 首屏静态 JS：130.1 KiB → **112.8 KiB gz（−13.3%）**，chunk 明细：app 30.9 + 共享（settings 视图/语料基座/store）66.8 + HomeView 8.0 + `details/daily` 7.0 + session 1.8 + progress 1.0。
+- **没达到开盘时估的 −35%，原因已查清**：按字符占比，例句占 49.3%，但例句是自然语言、gzip 压缩率远低于 `en/zh/aliases/tags` 这类高重复短文本——全量详情实测为 30.9 KiB，只占原语料 92.3 KiB 的 **33%**。按字符占比估算会高估收益，后续一律以 gzip 实测为准。
+- 另一个没算进去的入口：首页通过 `stores/session.ts`（静态 import `phrases/phraseById`）仍然背着全量基座语料，所以即使 HomeView 不直接引用，语料也回不到零。
+- 已验证：819 条 base 与 detail 逐字段比对通过；新增两条硬校验；62 项测试（原 61 + 1）；`typecheck` / `build` 通过；13 页仍为 `vocabulary` 预渲染页面，分类页 HTML 仍有例句。
+- **下一刀（E2，待评估）**：首页不再静态依赖语料（把「开始/到期/主题/快练」改成路由 query，由 StudyView 负责取数；计数与标签改用构建期校验的摘要常量），预计首屏再降到 **~60 KiB**。
+
+**文档**：`ARCHITECTURE`（数据层与 chunk 划分）、`AGENTS`（目录树、字段契约、§3.3 联动表、变更记录）、`CONTRIBUTING`（新增短语仍要写详情文件）、`PRODUCT`（今日一句池子）、`QA`、本文件。
+
 ---
 
 ## 3. 每次迭代的统一门禁
-
 - [ ] `pnpm check:content`（或 `pnpm test` 自动带出）
 - [ ] `pnpm test` 全绿，新增逻辑必须有用例
 - [ ] `pnpm typecheck`（`noUnusedLocals` 会拦死代码）

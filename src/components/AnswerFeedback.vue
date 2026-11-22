@@ -8,11 +8,13 @@ import {
   verdictLabel,
 } from '@/lib/feedback'
 import type { GradeResult } from '@/lib/grade'
-import type { Phrase } from '@/types/phrase'
+import type { Phrase, PhraseDetail } from '@/types/phrase'
 
 const props = defineProps<{
   result: GradeResult
   phrase: Phrase
+  /** 例句与记忆提示单独传入：详情与短语不在同一个模块里 */
+  detail: PhraseDetail
   combo: number
   dayReviewed: number
   dailyGoal: number
@@ -157,7 +159,7 @@ onUnmounted(() => ctx?.revert())
         <code class="your-answer-text">{{ yourAnswer }}</code>
         <span v-if="distanceHint" class="your-answer-gap">{{ distanceHint }}</span>
       </div>
-      <p class="feedback-example">{{ phrase.exampleEn }}</p>
+      <p v-if="detail.exampleEn" class="feedback-example">{{ detail.exampleEn }}</p>
     </div>
 
     <div class="feedback-meta">
@@ -181,7 +183,7 @@ onUnmounted(() => ctx?.revert())
     <div v-if="goalReached" class="goal-banner">今日目标达成，收工值得庆祝。</div>
 
     <p class="feedback-encourage">{{ encouragement }}</p>
-    <p v-if="phrase.tip" class="tip-line">记法：{{ phrase.tip }}</p>
+    <p v-if="detail.tip" class="tip-line">记法：{{ detail.tip }}</p>
 
     <div class="feedback-actions">
       <button class="btn btn-primary" type="button" @click="emit('next')">

@@ -35,6 +35,13 @@ export interface Phrase {
   category: CategoryId
   tags: string[]
   level: Level
+}
+
+/**
+ * 例句与记忆提示单独成块：它们占语料体积的一半，只有真正要展示的页面才加载。
+ * 放在 Phrase 里会让首页也背上全量详情，见 docs/ROADMAP.md E1。
+ */
+export interface PhraseDetail {
   exampleEn: string
   exampleZh: string
   tip?: string

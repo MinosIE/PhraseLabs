@@ -58,10 +58,12 @@ src/
   data/
     categories.ts        分类登记（id/名/描述/图标）
     categoryContent.ts   11 个分类的专属介绍/场景/练习建议/FAQ（同时供 FAQPage）
-    phrases/*.ts         11 个分类的内容文件
-    phrases/index.ts     汇总 phrases / phraseById / phraseCountByCategory
+    phrases/*.ts         11 个分类的基础字段（id/en/zh/别名/tags/level）
+    phrases/index.ts     汇总 phrases / phraseById / phraseCountByCategory（**不引详情**）
+    phrases/details/*.ts 各分类的例句与提示，按 id 索引
+    phrases/details/index.ts  汇总 phraseDetails / detailOf（全量详情，首页禁引）
   types/
-    phrase.ts            CategoryId / Level / StudyMode / ModeSetting / Phrase
+    phrase.ts            CategoryId / Level / StudyMode / ModeSetting / Phrase / PhraseDetail
     progress.ts          Settings / AppData / BestComboRecord / PhraseProgress / QueueItem / SessionDraft
   style.css             样式入口：只写 5 条 @import，顺序即层叠顺序
   styles/tokens.css     设计变量（亮/暗两套）、reset、排版基础
@@ -104,7 +106,8 @@ vite.config.ts          VITE_BASE_PATH → base；ssgOptions（dirStyle + includ
 | 记忆 | `lib/srs.ts` | 遗忘曲线：稳定度 `stability`、保留率 `retrievability`、`applyReview`/`masterProgress`、到期判断、`countDueBefore`、连续天数 | 统计口径以外的 UI |
 | 存储 | `lib/storage.ts` | `phraselabs:v1:*` 读写（含 `best-combo`）、导出/导入、旧数据迁移、sessionStorage 草稿 | 业务校验 |
 | 朗读 | `lib/speech.ts` | 音色优选、单次探测+缓存、`hasEnglishVoice` 能力检测、`rate=1`、`onstart` 即结束 loading | 判定、入口显隐 |
-| 内容 | `data/phrases/` | 静态短语与分类计数 | 运行时逻辑 |
+| 内容 | `data/phrases/` | 静态短语基础字段、分类计数与标签汇总 | 运行时逻辑 |
+| 例句详情 | `data/phrases/details/` | 819 条的 `exampleEn/exampleZh/tip`，按 id 索引；首页只引 `details/daily` | 基础字段、判定 |
 | 分类文案 | `data/categoryContent.ts` | 11 类专属 intro/scenario/tips/faq，供分类页与 `FAQPage` | 条数（页面按数据实时渲染） |
 | 今日一句 | `lib/daily.ts` | 按日期 FNV-1a 哈希挑一条，同日稳定、跨天轮换 | 展示与朗读（HomeView） |
 | 错词本 | `lib/mistakes.ts` | 错词定义（错 ≥2 次或错误率 ≥40%，稳定度 <15 天）、排序（错次 → 错误率 → 稳定度）与截断 | 存储（直接读 `progress`）、UI 渲染 |
@@ -163,7 +166,7 @@ Vue SFC 统一 `<script setup lang="ts">` → `<template>` →（无 `<style sco
 
 ### 2.5 数据模型规范
 
-类型定义只在 `src/types/`。`Phrase` / `Settings` / `AppData` / `QueueItem` 是跨模块契约，改动见 3.3。`importData` 校验 `version === 1`，失败抛中文 Error，由 `SettingsView` 捕获展示。
+类型定义只在 `src/types/`。`Phrase` / `PhraseDetail` / `Settings` / `AppData` / `QueueItem` 是跨模块契约，改动见 3.3。`PhraseDetail` 单独成模块是为了首屏体积：例句占语料近半字符，但不该跟着首页一起下发。`importData` 校验 `version === 1`，失败抛中文 Error， 由 `SettingsView` 捕获展示。
 
 ### 2.6 错误处理
 
@@ -177,9 +180,9 @@ Vue SFC 统一 `<script setup lang="ts">` → `<template>` →（无 `<style sco
 
 ### 2.8 测试要求
 
-Vitest，唯一测试文件 `src/lib/__tests__/core.test.ts`，当前 54 项。覆盖判定、队列（含临时范围与指定集合、再来一轮沿用范围、保留率排序）、遗忘曲线（稳定度增减、指数衰减、上下限、难词打折）、错词本阈值与排序、`countDueBefore`、归一化、存储迁移（盒子→稳定度）与最高连对往返、本轮草稿跨天失效、数据结构不变量，以及 SEO/内容层（旧 hash 映射、canonical、路由 robots 策略、分类路由与计数一致性、11 类分类文案与 FAQ 完整性、`hashDay` 锁定值与今日一句稳定性）。
+Vitest，唯一测试文件 `src/lib/__tests__/core.test.ts`，当前 62 项。覆盖判定、队列（含临时范围与指定集合、再来一轮沿用范围、保留率排序）、遗忘曲线（稳定度增减、指数衰减、上下限、难词打折）、错词本阈值与排序、`countDueBefore`、归一化、存储迁移（盒子→稳定度）与最高连对往返、本轮草稿跨天失效、数据结构不变量（含基座与详情一一对应），以及 SEO/内容层（旧 hash 映射、canonical、路由 robots 策略、分类路由与计数一致性、11 类分类文案与 FAQ 完整性、`hashDay` 锁定值与今日一句稳定性）。
 
-`package.json` 的 `pretest` 会先跑 `scripts/validate-phrases.mjs` （即 `pnpm check:content`）：`id`/`en` 全局唯一、`en` 含空格或连字符、`aliases` 归一化后 ≥2 汉字、`exampleEn` 可挖空、分类计数与 `phraseCountByCategory` 一致、README/PRODUCT 的条数与分类数同步。它通过 Vite SSR 加载器直接读 TS 数据，不要改成正则解析；任一问题失败会阻止测试与 CI。末尾的「软指标」（难度/分类分布、别名均长、例句均长、`tip` 覆盖率）**只输出不判定**，不要把它改成硬失败。**提交前必跑** `pnpm test && pnpm typecheck && pnpm build`；CI（`.github/workflows/deploy.yml`）先测后构建，任一失败不部 署。
+`package.json` 的 `pretest` 会先跑 `scripts/validate-phrases.mjs` （即 `pnpm check:content`）：`id`/`en` 全局唯一、`en` 含空格或连字符、`aliases` 归一化后 ≥2 汉字、详情里的 `exampleEn` 可挖空、基座与详情一一对应（每条都有 detail、无孤儿 id）、分类计数与 `phraseCountByCategory` 一致、README/PRODUCT 的条数与分类数同步。它通过 Vite SSR 加载器直接读 TS 数据，不要改成正则解析；任一问题失败会阻止测试与 CI。末尾的「软指标」（难度/分类分布、别名均长、例句均长、`tip` 覆盖率）**只输出不判定**，不要把它改成硬失败。**提交前必跑** `pnpm test && pnpm typecheck && pnpm build`；CI（`.github/workflows/deploy.yml`）先测后构建，任一失败不部 署。
 
 ## 3. AI Agent 开发指导 ★最高优先级★
 
@@ -187,7 +190,7 @@ Vitest，唯一测试文件 `src/lib/__tests__/core.test.ts`，当前 54 项。�
 
 - 目标行为是否属于短语训练；若涉及题型，先确认 `StudyMode` 现状（仅 3 种）。
 - 读 `types/phrase.ts` + `types/progress.ts` 确认字段真实存在，勿凭文档记忆。
-- 确认 `src/data/phrases/index.ts` 的汇总与计数逻辑是否受影响。
+- 确认 `src/data/phrases/index.ts`（基座汇总）与 `src/data/phrases/details/index.ts`（详情汇总）是否都需要改；新增页面若只要基础字段，别引详情 barrel。
 - 确认是否需要同步 `docs/PRODUCT.md`（业务规则/内容数）、`docs/ARCHITECTURE.md`（契约）与 `docs/SEO.md`（路由/索引/构建链路）。
 - 改路由或页面时确认：`route.meta.title` / `route.meta.robots` 已填，`App.vue` 的 `DESCRIPTIONS` 有对应描述，预渲染集合（`vite.config.ts` 的 `ssgOptions.includedRoutes`）是否需要改。
 
@@ -208,8 +211,8 @@ Vitest，唯一测试文件 `src/lib/__tests__/core.test.ts`，当前 54 项。�
 
 | 改什么 | 必须同时改 | 漏了会怎样 |
 | --- | --- | --- |
-| 新增分类 | `types/phrase.ts` `CategoryId` → `data/categories.ts` → **`data/categoryContent.ts` 补一整条 intro/scenario/tips/faq** → 新数据文件 → `data/phrases/index.ts`（import + 数组）→ `core.test.ts` → 文档；分类路由/预渲染/sitemap/llms/结构化数据会自动跟随 | 类型直接报错（`Record<CategoryId, ...>` 漏键）；不补文案则分类页与 FAQPage 空白 |
-| 新增短语 | 对应 `data/phrases/*.ts`、`phraseCountByCategory` 自动更新、文档总数 | `id` 冲突或计数与文档不符 |
+| 新增分类 | `types/phrase.ts` `CategoryId` → `data/categories.ts` → **`data/categoryContent.ts` 补一整条 intro/scenario/tips/faq** → 新基座文件 + `data/phrases/details/<分类>.ts` → 两条 barrel（`data/phrases/index.ts` 与 `details/index.ts` 都 import）→ `core.test.ts` → 文档；分类路由/预渲染/sitemap/llms/结构化数据会自动跟随 | 类型直接报错（`Record<CategoryId, ...>` 漏键）；不补文案则分类页与 FAQPage 空白；漏详情则 `check:content` 报缺详情 |
+| 新增短语 | 对应 `data/phrases/*.ts`（基座）+ `data/phrases/details/*.ts`（例句与 tip，键为 id）、`phraseCountByCategory` 自动更新、文档总数 | `check:content` 报「缺少例句详情」；`id` 冲突或计数与文档不符 |
 | 新增/删除题型 | `types/phrase.ts` `StudyMode` → `HomeView.vue` modes → `SettingsView.vue` modes → `StudyView.vue` `modeLabel` + 提示模板 → `lib/storage.ts` `normalizeSettings` 迁移 → `core.test.ts` 夹具/断言 → 文档（**共 7 处**） | 老设置指向不存在的模式，页面标签空白，判定分支缺失 |
 | 新增设置字段 | `types/progress.ts` `Settings` → `lib/storage.ts` `DEFAULT_SETTINGS` + `normalizeSettings` → `SettingsView.vue` 控件 + handler → `stores/settings.ts` setter → 文档契约 | 导入旧数据缺字段，或设置无默认值 |
 | 新增跨轮统计或持久化数据（如最高连对） | `types/progress.ts`（新类型 + `AppData` 可选字段 + `SessionDraft` 若需）→ `lib/storage.ts`（`KEYS` + `normalize*`/`load*`/`save*` + `exportData`/`importData`）→ `stores/progress.ts`（ref + watch 落盘 + `replace`/`reset`）→ `SettingsView.vue` 导入导出 → `core.test.ts`（往返 + 脏数据归一）→ 文档契约 | 备份导回丢数据，或手改 localStorage 的非数字值让页面崩在 `toFixed`/比较运算上 |
@@ -243,6 +246,8 @@ Vitest，唯一测试文件 `src/lib/__tests__/core.test.ts`，当前 54 项。�
 | 首页点分类后长期设置被改 | 直接写 `settings.categories` | 用 `session.start({ categories, label })`，只影响本轮 |
 | 反色卡片辅助文字看不清 | 把为浅底定义的 `--muted` / `--accent` 复用到 `--ink` 反色底，实测仅 2.43–3.75:1 | 用 `--on-ink-muted` / `--on-ink-accent` 双主题 token；进度条填充同理 |
 | 首页模板区块莫名少一层容器 | 用 SearchReplace 只匹配到开标签、替换文本以 `</section>` 结尾，把包裹元素吃掉了 | 改模板时把「整段区块」作为 `original_text`（含开合标签），改完 `pnpm build` 看预渲染页是否仍含「今日一句」等区块 |
+| 拆了例句，首屏体积几乎没降 | 只看字符占比估 gzip（例句 49% 字符 → 实占 33% 体积）；而且 `stores/session.ts` 静态 import 全量语料，首页经 store 又拿回了语料 | 收益一律用 gzip 实测；拆数据前先画首页的静态 import 图（entry + modulepreload + 静态依赖），`stores/` 也在链上 |
+| 详情 barrel 导出名对不上（少了 250+ 条例句） | 分类名 `idioms`/`emotions`/`connectors` 的导出是 `idiomsDetails` 等复数，barrel 写成单数后 `...undefined` 静默跳过 | 拆分后跑 `pnpm check:content`，新增的「每条都有 detail」校验会直接报出来 |
 | 首页首屏 JS 体积反弹 | 又写了 `import gsap from 'gsap'`（静态）或把 `mm` 声明成 `ReturnType<typeof gsap.matchMedia>`（类型引用也会建依赖） | 动画库只在 `setupMotion()` 里 `import('gsap')`，挂载后按 `requestIdleCallback` 调度；`mm` 用 `{ revert: () => void }` 结构类型；验收看首屏静态 chunk 合计 gzip，不看 raw |
 | SSG 构建期 ScrollTrigger 报 `window is not defined` | 顶层 `import { ScrollTrigger } from 'gsap/ScrollTrigger'` 会在预渲染的 Node 环境执行 | ScrollTrigger 与 gsap core 都只在 `onMounted` 后动态 `import()` 并 `registerPlugin`，配合 `disposed` 标志与 `mm.revert()`（D3 起 core 也不再静态导入） |
 | 首屏标题和按钮在截图里消失 | `gsap.from` 的 `autoAlpha:0` 会设 `visibility:hidden`，动画未推进时预渲染内容不可用 | 首屏与区块入场只用 `y` 位移 + `clearProps:'transform'`，不碰 `autoAlpha`；改完用 Chrome headless 截图复核 |
@@ -268,7 +273,8 @@ Vitest，唯一测试文件 `src/lib/__tests__/core.test.ts`，当前 54 项。�
 - [ ] `pnpm test` / `pnpm typecheck` / `pnpm build` 全过（`[postbuild]` 输出 11 分类 / 819 条，预渲染 13 个页面）
 - [ ] `pnpm check:content` 通过（`pnpm test` 已包含；它同时校验文档里的条数与分类数）
 - [ ] 无重复 `id` / `en`（跨分类有意重复需确认）
-- [ ] `aliases` 全部 ≥ 2 汉字；`exampleEn` 含 `en`
+- [ ] `aliases` 全部 ≥ 2 汉字；详情里的 `exampleEn` 含 `en`（或 `enAliases`）
+- [ ] 基座与 `details/` 一一对应（每次新增/删除短语两边同步，无孤儿 id）
 - [ ] 新增分类/题型/字段已按 3.3 联动表改全
 - [ ] 新增/修改路由已确认 `meta.title`、`meta.robots`、`DESCRIPTIONS` 与 `includedRoutes`
 - [ ] 文档中的条数与分类数与实际一致（含 `sitemap.xml` / `llms.txt` 生成的条数）
@@ -292,15 +298,15 @@ Vitest，唯一测试文件 `src/lib/__tests__/core.test.ts`，当前 54 项。�
 
 ### 5.1 已完成模块
 
-三种题型（中→英 / 英→中 / 例句填空）+ 混合、艾宾浩斯式遗忘曲线排期（记忆稳定度 + 保留率排序，旧 Leitner 盒子进度自动换算）、统计页、词库筛选、导入导出、主题、严格度、收藏、音色按设备能力显隐的手动朗读、加载态、自定义下拉、判定弹框与逐题对错、本轮结算页与历史最高连对（跨会话只增不减、随备份往返）、11 类 819 条短语（已完成跨分类去重，全库 `en` 唯一；补齐过高频口语/习语/短语动词，后又新增 26 条影视高频台词、14 条电影常见习语、24 条叠词习语、62 条同词重复/成对搭配习语（16 条 `X is X` + 18 条重复结构 + 28 条高频成对搭配）、24 条一词多义成对短语（60 → 84）、以及 D4 首轮的 30 条正式搭配/难句（12 条 L5 类学术、10 条商务、8 条习语，全部带 `tip`；L5 从 0 升到 2%，`tip` 覆盖 3% → 7%）；全部 `exampleEn` 均含可挖空形式）；词库分批渲染与「练这 N 条」、统计页「最该复习的 5 条」、本轮草稿刷新恢复、弹框内朗读与背景 `inert`；UI 动效与配色已按 ui-studio 做有界精修与对比度验证（见 `QA.md`）；SEO/GEO 与 SSG 已落地 P0–P3（history 路由、旧 hash 重定向、build 期预渲染 13 页、分类落地页、canonical/OG/JSON-LD、robots/sitemap/llms.txt；11 类专属文案 + 练习建议 + 场景 + FAQ 及按页 `BreadcrumbList`/`CollectionPage`/`DefinedTermSet`/`FAQPage`；首页「今日一句」与分类页「5 条快练」；触屏 44px 可点区域，见 `docs/SEO.md`）；首页已宣传化（真实短语视差层、**真实数据驱动的产品演示区**、三步循环与深色结尾 CTA，训练入口与预渲染正文不变，已做 Chrome 截图复核，见 `QA.md`）。
+三种题型（中→英 / 英→中 / 例句填空）+ 混合、艾宾浩斯式遗忘曲线排期（记忆稳定度 + 保留率排序，旧 Leitner 盒子进度自动换算）、统计页、词库筛选、导入导出、主题、严格度、收藏、音色按设备能力显隐的手动朗读、加载态、自定义下拉、判定弹框与逐题对错、本轮结算页与历史最高连对（跨会话只增不减、随备份往返）、11 类 819 条短语（已完成跨分类去重，全库 `en` 唯一；补齐过高频口语/习语/短语动词，后又新增 26 条影视高频台词、14 条电影常见习语、24 条叠词习语、62 条同词重复/成对搭配习语（16 条 `X is X` + 18 条重复结构 + 28 条高频成对搭配）、24 条一词多义成对短语（60 → 84）、以及 D4 首轮的 30 条正式搭配/难句（12 条 L5 类学术、10 条商务、8 条习语，全部带 `tip`；L5 从 0 升到 2%，`tip` 覆盖 3% → 7%）；全部 `exampleEn` 均含可挖空形式）；词库分批渲染与「练这 N 条」、统计页「最该复习的 5 条」、本轮草稿刷新恢复、弹框内朗读与背景 `inert`；例句与记忆提示已拆到 `data/phrases/details/`（E1，首屏静态 JS 130.1 → 112.8 KiB gzip）；UI 动效与配色已按 ui-studio 做有界精修与对比度验证（见 `QA.md`）；SEO/GEO 与 SSG 已落地 P0–P3（history 路由、旧 hash 重定向、build 期预渲染 13 页、分类落地页、canonical/OG/JSON-LD、robots/sitemap/llms.txt；11 类专属文案 + 练习建议 + 场景 + FAQ 及按页 `BreadcrumbList`/`CollectionPage`/`DefinedTermSet`/`FAQPage`；首页「今日一句」与分类页「5 条快练」；触屏 44px 可点区域，见 `docs/SEO.md`）；首页已宣传化（真实短语视差层、**真实数据驱动的产品演示区**、三步循环与深色结尾 CTA，训练入口与预渲染正文不变，已做 Chrome 截图复核，见 `QA.md`）。
 
 ### 5.2 开发中的模块
 
-无进行中的功能分支。`origin/main` 停在 `fe22083`；本地 `main` 在其之上按主题各一个提交：D1 标签练习与错词插队（`738c5a0`）、D2 PWA（`d15d203`）、D3 首屏瘦身（`73e00bd`）、D4 内容补齐（`9d093aa`）；这四项均未 push。
+无进行中的功能分支。`origin/main` = `c78d4a6`（D1–D4 已推送）；E1 数据拆分已提交，待推送。
 
 ### 5.3 未完成计划
 
-`docs/PRODUCT.md` P3 列出：可选高频错词本（已完成，见 A2）。内容扩充持续进行（D4 长尾）：当前 819 条，L5 2%、`tip` 7%，下一轮目标 L5 5%+；贡献者内容校验脚本已完成（`pnpm check:content`）。SEO/GEO 方面 P0–P3 已全部完成；仅剩 P4（前 100 条短语详情页，需上线观察 4–6 周数据再定），见 `docs/SEO.md`。
+`docs/PRODUCT.md` P3 列出：可选高频错词本（已完成，见 A2）。内容扩充持续进行（D4 长尾）：当前 819 条，L5 2%、`tip` 7%，下一轮目标 L5 5%+；贡献者内容校验脚本已完成（`pnpm check:content`）。SEO/GEO 方面 P0–P3 已全部完成；仅剩 P4（前 100 条短语详情页，需上线观察 4–6 周数据再定），见 `docs/SEO.md`。首屏还有 E2（首页不再静态依赖语料，目标 ~60 KiB）待评估，见 `docs/ROADMAP.md`。
 
 ### 5.4 技术债务
 
@@ -316,10 +322,11 @@ Vitest，唯一测试文件 `src/lib/__tests__/core.test.ts`，当前 54 项。�
 
 ### 5.6 后续规划 / 路线图
 
-见 `docs/PRODUCT.md`「路线」与 `docs/ROADMAP.md`：A1/A2/A3/B1/B2 已完成，B3 第 1 轮已完成（后续常态），D1/D2/D3 已完成、D4 第 1 轮已完成（长尾继续）→ C1 SEO P4（待数据）/ C2 成绩卡 / C3 依赖升级；P0–P2 已完成，P3 进行中（当前 819 条，L5 2%、tip 7%，内容继续扩充）。架构/接口/约定变更时同步更新本文件，否则指南会快速腐化。
+见 `docs/PRODUCT.md`「路线」与 `docs/ROADMAP.md`：A1/A2/A3/B1/B2 已完成，B3 第 1 轮已完成（后续常态），D1/D2/D3/D4 已完成（D4 长尾继续），E1 已完成（首屏 112.8 KiB）→ E2 首页去语料（待评估，目标 ~60 KiB）/ C1 SEO P4 （待数据）/ C2 成绩卡 / C3 依赖升级；P0–P2 已完成，P3 进行中（当前 819 条，L5 2%、tip 7%，内容继续扩充）。架构/接口/约定变更时同步更新本文件，否则指南会快速腐化。
 
 ## 6. 变更记录（本文件）
 
+- 2026-11-22：E1 首屏数据二次拆分。`Phrase` 只留基础字段，例句/提示移入 `data/phrases/details/<分类>.ts`（按 id 索引），两条 barrel 分开；首页只引 `details/daily`，今日一句改为限日常口语池；`AnswerFeedback` 新增 `detail` prop；`check:content` 新增「每条都有 detail / 无孤儿 detail」两类硬校验；首屏静态 JS 130.1 → 112.8 KiB（gzip），测试 62 项。
 - 2026-11-21：D4 第 1 轮完成（内容长尾）。新增 30 条正式搭配与难句：学术写作 12（`academic-051`–`062`）、商务邮件 10（`business-049`–`058`）、习语 8（`idioms-168`–`175`），全部带 `tip`；其中 L5 14 条、L4 16 条。软指标：总量 789 → 819，L5 0% → 2%，L4 8% → 10%，`tip` 3% → 7%。选型要求「中文容易说错 + 能写出一条可操作提醒」，例句尽量保留原形（`lend itself to` 因主谓一致例外，`enAliases` 收录复数形式）。README / PRODUCT / ARCHITECTURE / SEO / ROADMAP 与本文件的条数与分类数同步。
 - 2026-11-21：D3 完成。`HomeView.vue` 不再静态 `import gsap`，改为挂载后按 `requestIdleCallback(timeout 1500)`（Safari 退化 200ms）动态 `Promise.all([import('gsap'), import('gsap/ScrollTrigger')])`，`prefers-reduced-motion` 直接跳过；`mm` 改用 `{ revert: () => void }` 结构类型，避免类型引用把 gsap 拉回依赖图。首页首屏静态 JS（gzip）156.9 KiB → 130.1 KiB（−17.4%），产物里 `HomeView` chunk 不再静态 import `gsap-*.js`。**评估后不拆语料**：全量语料本身 92 KiB gz，且首页计数、已掌握数、标签汇总、今日一句都要它，拆包会牺牲预渲染正文与首页数据。
 - 2026-11-21：D2 完成。接入 `vite-plugin-pwa@2`（`registerType: 'prompt'`、`injectRegister: false`）+ `workbox-window`；`vite.config.ts` 生成 `sw.js` 与 `manifest.webmanifest`（`start_url`/`scope`/图标随 `base`），workbox 只做 precache（html 一并入缓存）+ `navigateFallback: 'index.html'`；`composables/usePwaUpdate.ts` 手动注册，`App.vue` 顶部「新版本已就绪」条；`postbuild` 新增 `sw.js`/manifest/icons 门禁；`apple-touch-icon.png` 补到 `public/` 根。断网实测首页 / `/study` / `/library` 均可用。
