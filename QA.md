@@ -1,5 +1,35 @@
 # QA 验证记录
 
+## 2026-11-21 · D3 首屏瘦身（roadmap D3）
+
+### 自动化
+
+- `pnpm test`：61/61 通过；`pnpm typecheck` / `pnpm build`：通过，13 页预渲染 + postbuild + PWA 门禁（`precache 38 entries`）。
+
+### 体积实测（gzip，`vite preview` 产物）
+
+| 文件 | raw | gzip |
+| --- | --- | --- |
+| `app-*.js` | 72759 | 30380 |
+| `settings-*.js`（全量语料 + 共享代码） | 290275 | 92291 |
+| `HomeView-*.js` | 19458 | 7783 |
+| `session-*.js` | 4154 | 1802 |
+| `progress-*.js` | 2146 | 1005 |
+| `gsap-*.js`（已移出关键路径） | 70564 | 27398 |
+| `ScrollTrigger-*.js`（本来就是动态） | 42839 | 17438 |
+
+- 首页首屏静态 JS：**156.9 KiB → 130.1 KiB gz（−26.8 KiB，−17.4%）**；`HomeView` chunk 头部不再有 `from"./gsap-*.js"`。
+
+### 浏览器实测（preview :4187）
+
+- console 0 报错；`gsap-C_a4uAT2.js` 与 `ScrollTrigger-Dg2oAicK.js` 在首帧之后才请求，`window.gsapVersions` = 3.15.1。
+- 首屏截图无闪烁、无布局跳动；`reveal-item` 动画结束后 `transform: none`（`clearProps` 生效）；滚动到页面底部内容完整。
+
+### 未验证 / 未做
+
+- 语料拆包（评估后判定收益 < 复杂度，理由见 `ROADMAP` D3「不做」）；CSS 侧（字体、`scroll-behavior`）本轮未测。
+- 未验证：真机弱网下的 `requestIdleCallback` 调度表现（timeout 1500ms 兜底）。
+
 ## 2026-11-21 · D2 PWA 离线与主屏安装（roadmap D2）
 
 ### 自动化

@@ -13,6 +13,7 @@
 | 测试 | Vitest 单文件 61 项，`pretest` 自动跑内容校验 |
 | 构建 | vite-ssg 预渲染 13 页（首页 + 词库 + 11 分类）；`postbuild` 生成 404 / sitemap / llms.txt 并校验产物 |
 | 部署 | GitHub Pages + Actions（先测后构建）；`main` 推送即发布；PWA 产物（`sw.js` / `manifest.webmanifest`）随构建生成，`postbuild` 校验 |
+| 首屏 | 首页静态 JS 共 5 个 chunk / 130.1 KiB（gzip）：`settings`（全量语料）92.3 + `app` 30.4 + `HomeView` 7.8 + `session`/`progress` 2.8；gsap + ScrollTrigger 首帧后按需加载 |
 | 已知债务 | 配置层用正则读 TS 源（`vite.config.ts` / `postbuild.mjs`）；分类文案里举例了具体条目 |
 
 ## 1. 优先级总览
@@ -30,8 +31,8 @@
 | C3 | 依赖升级 | 中（安全） | 0.5 天/轮 | 见 §2.C3 约束 | 每季度 | 待做 |
 | D1 | 标签练习 + 错词优先入队 | 高（直接决定「今天练什么」） | 1 天 | 无 | 立即 | ✅ 已完成 2026-11-21 |
 | D2 | PWA 离线与主屏安装 | 中高（习惯养成 / 断网可用） | 1 天 | D1 后做，避免合并冲突 | 紧随 D1 | ✅ 已完成 2026-11-21 |
-| D3 | 首屏瘦身（语料按需加载） | 中（移动端首屏） | 1 天 | 依赖 D2 的缓存策略 | R4 | 待做 |
-| D4 | 内容补齐（L5 难度 + tip 覆盖） | 中（内容纵深） | 长尾 | 无 | 持续 | 待做 |
+| D3 | 首屏瘦身（动画库移出关键路径） | 中（移动端首屏） | 0.5 天 | 依赖 D2 的缓存策略 | R4 | ✅ 2026-11-21 |
+| D4 | 内容补齐（L5 难度 + tip 覆盖） | 中（内容纵深） | 长尾 | 无 | 持续 | 待做（进行中：本轮 789 条，L5 0%、tip 3%） |
 
 ## 2. 详细方案
 
@@ -230,15 +231,20 @@
 
 #### D3 · 首屏瘦身（P2）
 
-**现状**：首屏引用 `app` 71 KB + `HomeView` 18 KB + `settings` 290 KB（全量语料）= 约 380 KB。
+**现状**：按 gzip 实测，首屏静态 JS = `settings`（全量语料 + 共享代码）92.3 KiB + `app` 30.4 KiB + `HomeView` 7.8 KiB + `session`/`progress` 2.8 KiB ≈ 133 KiB；另外 `HomeView` 还静态 import 了 gsap（27.4 KiB gz）。
 
-**做什么**：把语料按分类拆成动态 import（`data/phrases/index.ts` 提供 `loadCategory(id)` 与 `loadAll()`），首页只取计数与「今日一句」所需的最小集合；词库/学习页再按需加载全量；`buildQueue` 改为接收已加载的数组。
+**做什么**：把动画库移出关键路径。`HomeView` 不再静态 `import gsap`，改成首帧画完（`requestIdleCallback`，Safari 退化 200ms）再与 `ScrollTrigger` 一起动态加载；`prefers-reduced-motion` 的用户直接跳过、一个字节都不下载。
 
-**不做**：不改判定/排期算法；不做服务端分页。
+**不做**：不拆语料。实测语料本身 92 KiB gz，且首页要用它算 `phrases.length`、已掌握数（与 `progress` 求交）、`tagCounts`、今日一句与演示区；按分类拆成动态 import 会同时牺牲预渲染正文的首屏可见性与首页计数，收益却远小于复杂度。`AnswerFeedback` 的 gsap 保留静态导入（学习页首次答题就要动画，动态化没有收益）。
 
-**风险**：SSG 预渲染在 Node 端需要同步数据，动态 import 要让 `includedRoutes` 生成的页面在构建期仍能拿到正文 → 保留一份构建期静态导入，运行期走动态加载。
+**验收（按 gzip 计，可复测）**：首页首屏静态 JS 从 156.9 KiB 降到 130.1 KiB（−17.4%）；`HomeView` chunk 里不再出现 `gsap-*.js` 静态 import；gsap / ScrollTrigger 在首帧之后才请求，关闭动效时不请求；首页、词库、学习、统计、设置功能与 13 页预渲染正文不变；`build` 通过 postbuild 与 PWA 门禁。
 
-**验收**：首屏 JS 降至约 90 KB（±20%）；首页、词库、学习、统计、设置五页功能与预渲染正文不变；`build` 13 页仍通过 postbuild 校验。
+**落地记录（2026-11-21）**
+
+- 改动只在 `HomeView.vue`：删掉静态 `import gsap from 'gsap'`，`mm` 的类型从 `ReturnType<typeof gsap.matchMedia>` 换成 `{ revert: () => void }`（类型引用也会把 gsap 拉回依赖图），挂载后按 `requestIdleCallback(timeout 1500)` 调度 `setupMotion()`，内部 `Promise.all([import('gsap'), import('gsap/ScrollTrigger')])`。
+- 实测（`vite preview`，gzip）：`app` 30380 + `settings` 92291 + `HomeView` 7783 + `session` 1802 + `progress` 1005 = **133261 B（130.1 KiB）**，改动前同口径 160659 B（156.9 KiB）。
+- 浏览器验证：console 0 报错；`gsap-C_a4uAT2.js` / `ScrollTrigger-Dg2oAicK.js` 在首帧后按需加载（`gsapVersions` = 3.15.1），首屏无闪烁、无布局跳动，reveal 元素动画结束后 `transform: none`。
+- **未做**：语料拆包；`scroll-behavior` / 字体等 CSS 侧收益本轮未测。
 
 #### D4 · 内容补齐（P2，长尾）
 

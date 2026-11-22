@@ -243,7 +243,8 @@ Vitest，唯一测试文件 `src/lib/__tests__/core.test.ts`，当前 54 项。�
 | 首页点分类后长期设置被改 | 直接写 `settings.categories` | 用 `session.start({ categories, label })`，只影响本轮 |
 | 反色卡片辅助文字看不清 | 把为浅底定义的 `--muted` / `--accent` 复用到 `--ink` 反色底，实测仅 2.43–3.75:1 | 用 `--on-ink-muted` / `--on-ink-accent` 双主题 token；进度条填充同理 |
 | 首页模板区块莫名少一层容器 | 用 SearchReplace 只匹配到开标签、替换文本以 `</section>` 结尾，把包裹元素吃掉了 | 改模板时把「整段区块」作为 `original_text`（含开合标签），改完 `pnpm build` 看预渲染页是否仍含「今日一句」等区块 |
-| SSG 构建期 ScrollTrigger 报 `window is not defined` | 顶层 `import { ScrollTrigger } from 'gsap/ScrollTrigger'` 会在预渲染的 Node 环境执行 | 只在 `onMounted` 内动态 `import()` 并 `registerPlugin`，配合 `disposed` 标志与 `mm.revert()`；GSAP core 可顶层导入 |
+| 首页首屏 JS 体积反弹 | 又写了 `import gsap from 'gsap'`（静态）或把 `mm` 声明成 `ReturnType<typeof gsap.matchMedia>`（类型引用也会建依赖） | 动画库只在 `setupMotion()` 里 `import('gsap')`，挂载后按 `requestIdleCallback` 调度；`mm` 用 `{ revert: () => void }` 结构类型；验收看首屏静态 chunk 合计 gzip，不看 raw |
+| SSG 构建期 ScrollTrigger 报 `window is not defined` | 顶层 `import { ScrollTrigger } from 'gsap/ScrollTrigger'` 会在预渲染的 Node 环境执行 | ScrollTrigger 与 gsap core 都只在 `onMounted` 后动态 `import()` 并 `registerPlugin`，配合 `disposed` 标志与 `mm.revert()`（D3 起 core 也不再静态导入） |
 | 首屏标题和按钮在截图里消失 | `gsap.from` 的 `autoAlpha:0` 会设 `visibility:hidden`，动画未推进时预渲染内容不可用 | 首屏与区块入场只用 `y` 位移 + `clearProps:'transform'`，不碰 `autoAlpha`；改完用 Chrome headless 截图复核 |
 | 分类页文案像批量生成的 | 给 11 类写同一个句式模板，只换名词 | 每类举 2–3 条**本类真实条目**并说清难点；`core.test.ts` 断言 intro/scenario 互不重复 |
 | 「改判答对」留下两套账 | 翻案同时改本轮正确率与 SRS：答错把稳定度缩到 40%、答对只乘 1.9，回不到原值，`wrong` 还永久 +1 | 判定不可推翻；只提供「这条我会了」抬高稳定度 + 撤回重练，统计学口径保持不变 |
@@ -315,10 +316,11 @@ Vitest，唯一测试文件 `src/lib/__tests__/core.test.ts`，当前 54 项。�
 
 ### 5.6 后续规划 / 路线图
 
-见 `docs/PRODUCT.md`「路线」与 `docs/ROADMAP.md`：A1/A2/A3/B1/B2 已完成，B3 第 1 轮已完成（后续常态），D1/D2 已完成 → D3 首屏瘦身 / D4 内容补齐 → C1 SEO P4（待数据）/ C2 成绩卡 / C3 依赖升级；P0–P2 已完成，P3 进行中（当前 789 条，内容继续扩充）。架构/接口/约定变更时同步更新本文件，否则指南会快速腐化。
+见 `docs/PRODUCT.md`「路线」与 `docs/ROADMAP.md`：A1/A2/A3/B1/B2 已完成，B3 第 1 轮已完成（后续常态），D1/D2/D3 已完成 → D4 内容补齐 → C1 SEO P4（待数据）/ C2 成绩卡 / C3 依赖升级；P0–P2 已完成，P3 进行中（当前 789 条，内容继续扩充）。架构/接口/约定变更时同步更新本文件，否则指南会快速腐化。
 
 ## 6. 变更记录（本文件）
 
+- 2026-11-21：D3 完成。`HomeView.vue` 不再静态 `import gsap`，改为挂载后按 `requestIdleCallback(timeout 1500)`（Safari 退化 200ms）动态 `Promise.all([import('gsap'), import('gsap/ScrollTrigger')])`，`prefers-reduced-motion` 直接跳过；`mm` 改用 `{ revert: () => void }` 结构类型，避免类型引用把 gsap 拉回依赖图。首页首屏静态 JS（gzip）156.9 KiB → 130.1 KiB（−17.4%），产物里 `HomeView` chunk 不再静态 import `gsap-*.js`。**评估后不拆语料**：全量语料本身 92 KiB gz，且首页计数、已掌握数、标签汇总、今日一句都要它，拆包会牺牲预渲染正文与首页数据。
 - 2026-11-21：D2 完成。接入 `vite-plugin-pwa@2`（`registerType: 'prompt'`、`injectRegister: false`）+ `workbox-window`；`vite.config.ts` 生成 `sw.js` 与 `manifest.webmanifest`（`start_url`/`scope`/图标随 `base`），workbox 只做 precache（html 一并入缓存）+ `navigateFallback: 'index.html'`；`composables/usePwaUpdate.ts` 手动注册，`App.vue` 顶部「新版本已就绪」条；`postbuild` 新增 `sw.js`/manifest/icons 门禁；`apple-touch-icon.png` 补到 `public/` 根。断网实测首页 / `/study` / `/library` 均可用。
 - 2026-11-21：D1 完成。新增 `lib/tags.ts`（`collectTags` 按条数降序、`pickByTag`、`pickFeaturedTags` 保证首页先展示跨分类标签），`data/phrases/index.ts` 导出派生常量 `tagCounts`；词库新增主题 chip 行（可与分类/难度/状态叠加），首页新增「按主题练一轮」（随机 20 条）；`buildQueue` 改为「真到期（学过且到期）→ 错词插队（上限 `max(1, round(dailyGoal×0.3))`）→ 随机补足」，没学过的词不再当作到期项占满名额。测试 54 → 61 项。
 

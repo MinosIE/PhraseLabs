@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import gsap from 'gsap'
 import { categories } from '@/data/categories'
 import { phraseById, phraseCountByCategory, phrases, tagCounts } from '@/data/phrases'
 import { pickDaily } from '@/lib/daily'
@@ -213,18 +212,37 @@ const demoPhrase = computed(
 )
 
 const root = ref<HTMLElement | null>(null)
-let mm: ReturnType<typeof gsap.matchMedia> | undefined
+/** 只用到 revert；这里不写 gsap 的类型，否则类型引用会把 gsap 拉回静态依赖图 */
+let mm: { revert: () => void } | undefined
 let disposed = false
 
-onMounted(async () => {
+type IdleWindow = Window & {
+  requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number
+}
+
+onMounted(() => {
   const el = root.value
   if (!el) return
-  // vite-ssg 在构建期会执行 setup；ScrollTrigger 只在浏览器侧加载与注册
-  const { ScrollTrigger } = await import('gsap/ScrollTrigger')
+  // 动画只是增强：关掉动效的用户一个字节都不下 gsap
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+  // gsap + ScrollTrigger 共约 44 KB(gzip)，等首帧画完再拉，别和首屏内容抢带宽。
+  // Safari 没有 requestIdleCallback，退化成 200ms 后加载。
+  const idle = (window as IdleWindow).requestIdleCallback
+  if (idle) idle(() => void setupMotion(el), { timeout: 1500 })
+  else window.setTimeout(() => void setupMotion(el), 200)
+})
+
+/** vite-ssg 在构建期也会执行 setup，所以 gsap 只在挂载后的浏览器侧加载 */
+async function setupMotion(el: HTMLElement): Promise<void> {
+  const [{ default: gsap }, { ScrollTrigger }] = await Promise.all([
+    import('gsap'),
+    import('gsap/ScrollTrigger'),
+  ])
   if (disposed) return
   gsap.registerPlugin(ScrollTrigger)
-  mm = gsap.matchMedia()
-  mm.add(
+  const media = gsap.matchMedia()
+  mm = media
+  media.add(
     {
       isDesktop: '(min-width: 861px)',
       reduceMotion: '(prefers-reduced-motion: reduce)',
@@ -277,7 +295,7 @@ onMounted(async () => {
     },
     el,
   )
-})
+}
 
 onUnmounted(() => {
   disposed = true
