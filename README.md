@@ -4,7 +4,7 @@
 
 ## 功能
 
-- 789 条短语、11 个分类，覆盖日常口语、职场、短语动词、习语、旅行等；除叠词习语用连字符（如 “fifty-fifty”）外，全部以含空格的短语为单位，不收录孤立单词，全库短语唯一，日常口语为重点（148 条，多为简单高频表达与影视台词）；习语收录地道习语、叠词（如 “so-so”“chit-chat”）、`X is X` 句式（如 “life is life”“business is business”“money is money”）、重复结构（如 “again and again”“little by little”“face to face”）与高频成对搭配（如 “ups and downs”“safe and sound”“first come, first served”）；另设「一词多义」分类用成对短语展示同词异义（如“book a table”与“read a book”），现为 84 条；
+- 819 条短语、11 个分类，覆盖日常口语、职场、短语动词、习语、旅行等；除叠词习语用连字符（如 “fifty-fifty”）外，全部以含空格的短语为单位，不收录孤立单词，全库短语唯一，日常口语为重点（148 条，多为简单高频表达与影视台词）；习语收录地道习语、叠词（如 “so-so”“chit-chat”）、`X is X` 句式（如 “life is life”“business is business”“money is money”）、重复结构（如 “again and again”“little by little”“face to face”）与高频成对搭配（如 “ups and downs”“safe and sound”“first come, first served”）；另设「一词多义」分类用成对短语展示同词异义（如“book a table”与“read a book”），现为 84 条；学术写作与商务邮件补了一批正式搭配（如 “on the grounds that”“in due course”“subject to approval”），多数带用法提示；
 - 首页、词库、设置页的分类入口都显示各类条目数量；每个分类有独立的落地页（`/phrases/daily` 等），带该类的专属介绍、练习建议、典型场景与 FAQ，列出全部词条与例句，可直接开练
 - 首页以宣传式排版说清这是什么站：首屏是真实短语的滚动视差与短语带，中部有真实数据驱动的产品演示区（提示 → 输入 → 判定 → 下次见面），深色结尾 CTA 与演示区首尾呼应，正文还有「看、敲、再见」三步循环；训练入口一个不少——今日训练（按每日目标）、5 条快练（约 30 秒）、到期复习（一键过完今天该复习的条数）、按题型直接开练，结尾还有同一组 CTA；今日卡同时显示连续天数、已掌握与累计作答。动效在移动端与 `prefers-reduced-motion` 下自动降级
 - 轻量入口：首页「今日一句」每天自动换一条（同一天刷新不变），可直接练这一条或听一遍；每个分类页都有「5 条快练 · 30 秒」

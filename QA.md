@@ -1,5 +1,35 @@
 # QA 验证记录
 
+## 2026-11-21 · D4 内容补齐第 1 轮（roadmap D4）
+
+### 自动化
+
+- `pnpm check:content`：11 类 / 819 条通过（`id`/`en` 唯一、别名 ≥2 汉字、`exampleEn` 可挖空、README 与 PRODUCT 条数一致）。
+- 软指标：L1 24% / L2 38% / L3 27% / L4 10% / **L5 2%**；`tip` 覆盖率 3% → 7%。
+- `pnpm test`：61/61 通过；`pnpm typecheck` / `pnpm build`：通过，预渲染 13 页，`postbuild` 报告「11 个分类 / 819 条短语」。
+
+### 新增内容
+
+| 分类 | 新增 | 编号 | 备注 |
+| --- | --- | --- | --- |
+| 学术写作 | 12 | `academic-051`–`062` | 7 条 L5（如 `on the grounds that`、`call into question`、`lend itself to`） |
+| 商务邮件 | 10 | `business-049`–`058` | 5 条 L5（如 `in due course`、`subject to approval`、`at the discretion of`） |
+| 习语俗语 | 8 | `idioms-168`–`175` | 2 条 L5（`read between the lines`、`draw a distinction`） |
+
+30 条全部带 `tip`；`lend itself to` 补 `enAliases` 覆盖 `lends itself to` / `lend themselves to`（例句用复数）。
+
+### 浏览器实测（preview :4189）
+
+- `/phrases/academic`：页头 60 条，`on the grounds that` / `call into question` / `in the interim` 三条的中文、例句、难度 5 与标签均正常渲染。
+- `/library`：搜索 `in due course` 命中 1 条（商务邮件 / 难度 5 / 邮件+正式）；点「正式 · 120」筛出 120 条，列表可见 `subject to approval`、`in the wake of`。
+- `/`：站点数据条 819、学术写作 60、商务邮件 54，「按主题练一轮」出现「正式 · 120」。
+- console 0 报错。
+
+### 未验证 / 边界
+
+- 未做真人判定抽检（新条目均为长短语与正式搭配，中文侧以 `aliases` 覆盖常见说法；若后续 B3 抽检命中再补别名）。
+- `tip` 只写作一条可操作提醒，未接入判题；`check:content` 仍只输出软指标，不阻断。
+
 ## 2026-11-21 · D3 首屏瘦身（roadmap D3）
 
 ### 自动化

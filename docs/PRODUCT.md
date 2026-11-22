@@ -12,7 +12,7 @@
 | --- | --- | --- |
 | 首屏 | 一句话定位 + 今日训练（含剩余题数）+ 5 条快练 + 词库链接 | 有未完成草稿时次按钮变为「继续上一轮」。上方叠加真实短语视差层（`aria-hidden`，不参与索引与判定），底部短语带随滚动横移；装饰语料取自 `phrases`，内容与入口不变 |
 | 今日卡 | 今日进度、连续天数、已掌握、累计作答、到期复习 | 有待复习时直接开出「到期复习」队列：只算学过的到期条，按到期先后取，最多每日目标题量 |
-| 站点数据条 | 789 条 / 11 类 / 4 种题型 / 0 次注册 | 用数字说明站点性质：内容规模、题型数、无需账号 |
+| 站点数据条 | 819 条 / 11 类 / 4 种题型 / 0 次注册 | 用数字说明站点性质：内容规模、题型数、无需账号 |
 | 今日一句 | 每天一条短语，可直接练或听 | 见下表 |
 | 按题型开练 | 四种题型卡 | 点选即开练，并把该题型记为默认题型 |
 | 为什么是「短语 + 键盘」 | 四条特色 | 键盘流不碰鼠标、训练单位是完整短语、错题当轮回炉 + 遗忘曲线排期、进度只存本地可导出备份 |
@@ -122,7 +122,7 @@
 
 ## 内容体系
 
-现有 789 条，分 11 类：日常口语 148、习语俗语 166、动词短语 77、一词多义 84、学术写作 48、职场沟通 46，商务邮件 / 介词搭配 / 旅行出行 / 情绪表达 / 连接过渡各 44。除叠词习语用连字符书写（如 `fifty-fifty`）外，全部以含空格的短语为单位，不收录孤立单词；全库英文短语唯一，已清理跨分类重复条目。内容扩充以常见、简单、日常高频表达为优先，日常口语类收录大量问候、起居、饮食、家务与简短回应短语，多为难度 1；近期补充了 `it depends`、`on my way`、`my treat`、`keep in touch` 等口语高频表达，以及 `at the end of the day`、`in a nutshell`、`hands down` 等常考习语和 `turn out`、`take over`、`make a difference` 等短语动词；最近一轮新增 26 条影视/美剧高频台词（如 `you can say that again`、`what’s the catch`、`hold your horses`、`none of your business`）、14 条电影里常见的习语（如 `over my dead body`、`easier said than done`、`what’s done is done`）和 24 条叠词习语（同一个词重复，如 `so-so`、`fifty-fifty`、`chit-chat`、`now now`、`there there`），叠词用连字符或空格书写，判定时连字符会归一化为空格。另补 62 条「同词重复/成对搭配」习语：16 条 `X is X` 句式（如 `life is life`、`business is business`、`rules are rules`、`money is money`）、18 条重复结构（如 `again and again`、`little by little`、`step by step`、`face to face`、`never say never`）与 28 条高频成对搭配（如 `now and then`、`ups and downs`、`safe and sound`、`first come, first served`、`through thick and thin`），整体表达“就是这样/公事公办/逐步地/反复地”这类固定态度与方式。「一词多义」用成对短语展示同一个词在不同搭配里的不同意思，例如“book a table（预订餐桌）”与“read a book（读书）”；近期又补 12 组共 24 条高频成对短语（如 `charge the phone` / `free of charge`、`sign a contract` / `a road sign`、`watch a match` / `match the color`），每组共用同一个词的不同义项。难度 1–5 级，每条包含英文、中文、中文别名、分类、标签、难度、双语例句和可选用法提示。
+现有 819 条，分 11 类：日常口语 148、习语俗语 174、动词短语 77、一词多义 84、学术写作 60、商务邮件 54、职场沟通 46，介词搭配 / 旅行出行 / 情绪表达 / 连接过渡各 44。除叠词习语用连字符书写（如 `fifty-fifty`）外，全部以含空格的短语为单位，不收录孤立单词；全库英文短语唯一，已清理跨分类重复条目。内容扩充以常见、简单、日常高频表达为优先，日常口语类收录大量问候、起居、饮食、家务与简短回应短语，多为难度 1；近期补充了 `it depends`、`on my way`、`my treat`、`keep in touch` 等口语高频表达，以及 `at the end of the day`、`in a nutshell`、`hands down` 等常考习语和 `turn out`、`take over`、`make a difference` 等短语动词；最近一轮新增 26 条影视/美剧高频台词（如 `you can say that again`、`what’s the catch`、`hold your horses`、`none of your business`）、14 条电影里常见的习语（如 `over my dead body`、`easier said than done`、`what’s done is done`）和 24 条叠词习语（同一个词重复，如 `so-so`、`fifty-fifty`、`chit-chat`、`now now`、`there there`），叠词用连字符或空格书写，判定时连字符会归一化为空格。另补 62 条「同词重复/成对搭配」习语：16 条 `X is X` 句式（如 `life is life`、`business is business`、`rules are rules`、`money is money`）、18 条重复结构（如 `again and again`、`little by little`、`step by step`、`face to face`、`never say never`）与 28 条高频成对搭配（如 `now and then`、`ups and downs`、`safe and sound`、`first come, first served`、`through thick and thin`），整体表达“就是这样/公事公办/逐步地/反复地”这类固定态度与方式。「一词多义」用成对短语展示同一个词在不同搭配里的不同意思，例如“book a table（预订餐桌）”与“read a book（读书）”；近期又补 12 组共 24 条高频成对短语（如 `charge the phone` / `free of charge`、`sign a contract` / `a road sign`、`watch a match` / `match the color`），每组共用同一个词的不同义项。难度 1–5 级，每条包含英文、中文、中文别名、分类、标签、难度、双语例句和可选用法提示。最近一轮补 30 条正式搭配与难句（学术写作 12、商务邮件 10、习语 8），其中 14 条为难度 5，全部带 `tip`（如 `on the grounds that`、`in due course`、`call into question`、`at the discretion of`、`read between the lines`），用来补齐 L5 空白与用法提示覆盖率。
 
 首页、词库、设置页的分类入口都展示各类条数。后续考虑社区 PR 供稿与内容校验脚本。
 
@@ -131,7 +131,7 @@
 - P0（已完成）：项目脚手架、数据模型、首批短语、中→英输入、本地进度、GitHub Pages 部署。
 - P1（已完成）：四种题型、间隔复习、统计页、词库筛选。
 - P2（已完成）：导入导出、主题、严格度、收藏与朗读。
-- P3（已完成）：内容扩充持续进行（当前 789 条）；已补 11 个分类页的专属文案、练习建议与 FAQ，首页「今日一句」与分类页「5 条快练」；贡献者内容校验脚本（`pnpm check:content`）；高频错词本（统计页错词榜 + 词库「错词」筛选）。
-- P4（已完成）：主题标签可直接开练（词库主题筛选 + 首页「按主题练一轮」），未到期的错词插进每日队列；PWA 离线可用与主屏安装，新版本只提示不自动刷新。
+- P3（已完成）：内容扩充持续进行（当前 819 条）；已补 11 个分类页的专属文案、练习建议与 FAQ，首页「今日一句」与分类页「5 条快练」；贡献者内容校验脚本（`pnpm check:content`）；高频错词本（统计页错词榜 + 词库「错词」筛选）。
+- P4（已完成）：主题标签可直接开练（词库主题筛选 + 首页「按主题练一轮」），未到期的错词插进每日队列；PWA 离线可用与主屏安装，新版本只提示不自动刷新；首页动画库移出首屏关键路径（首屏静态 JS − 17.4%）。
 
-每一项的「做/不做/验收/涉及文件」见 `docs/ROADMAP.md`（当前顺序：D3 首屏瘦身 → D4 内容补齐 → C1 SEO P4 / C2 成绩卡 / C3 依赖升级）。
+每一项的「做/不做/验收/涉及文件」见 `docs/ROADMAP.md`（当前顺序：D4 内容继续长尾扩充 → C1 SEO P4 / C2 成绩卡 / C3 依赖升级）。

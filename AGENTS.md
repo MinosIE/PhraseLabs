@@ -265,7 +265,7 @@ Vitest，唯一测试文件 `src/lib/__tests__/core.test.ts`，当前 54 项。�
 
 ### 3.7 回归清单
 
-- [ ] `pnpm test` / `pnpm typecheck` / `pnpm build` 全过（`[postbuild]` 输出 11 分类 / 789 条，预渲染 13 个页面）
+- [ ] `pnpm test` / `pnpm typecheck` / `pnpm build` 全过（`[postbuild]` 输出 11 分类 / 819 条，预渲染 13 个页面）
 - [ ] `pnpm check:content` 通过（`pnpm test` 已包含；它同时校验文档里的条数与分类数）
 - [ ] 无重复 `id` / `en`（跨分类有意重复需确认）
 - [ ] `aliases` 全部 ≥ 2 汉字；`exampleEn` 含 `en`
@@ -292,15 +292,15 @@ Vitest，唯一测试文件 `src/lib/__tests__/core.test.ts`，当前 54 项。�
 
 ### 5.1 已完成模块
 
-三种题型（中→英 / 英→中 / 例句填空）+ 混合、艾宾浩斯式遗忘曲线排期（记忆稳定度 + 保留率排序，旧 Leitner 盒子进度自动换算）、统计页、词库筛选、导入导出、主题、严格度、收藏、音色按设备能力显隐的手动朗读、加载态、自定义下拉、判定弹框与逐题对错、本轮结算页与历史最高连对（跨会话只增不减、随备份往返）、11 类 789 条短语（已完成跨分类去重，全库 `en` 唯一；补齐过高频口语/习语/短语动词，后又新增 26 条影视高频台词、14 条电影常见习语、24 条叠词习语、62 条同词重复/成对搭配习语（16 条 `X is X` + 18 条重复结构 + 28 条高频成对搭配）、24 条一词多义成对短语（60 → 84）；全部 `exampleEn` 均含可挖空形式）；词库分批渲染与「练这 N 条」、统计页「最该复习的 5 条」、本轮草稿刷新恢复、弹框内朗读与背景 `inert`；UI 动效与配色已按 ui-studio 做有界精修与对比度验证（见 `QA.md`）；SEO/GEO 与 SSG 已落地 P0–P3（history 路由、旧 hash 重定向、build 期预渲染 13 页、分类落地页、canonical/OG/JSON-LD、robots/sitemap/llms.txt；11 类专属文案 + 练习建议 + 场景 + FAQ 及按页 `BreadcrumbList`/`CollectionPage`/`DefinedTermSet`/`FAQPage`；首页「今日一句」与分类页「5 条快练」；触屏 44px 可点区域，见 `docs/SEO.md`）；首页已宣传化（真实短语视差层、**真实数据驱动的产品演示区**、三步循环与深色结尾 CTA，训练入口与预渲染正文不变，已做 Chrome 截图复核，见 `QA.md`）。
+三种题型（中→英 / 英→中 / 例句填空）+ 混合、艾宾浩斯式遗忘曲线排期（记忆稳定度 + 保留率排序，旧 Leitner 盒子进度自动换算）、统计页、词库筛选、导入导出、主题、严格度、收藏、音色按设备能力显隐的手动朗读、加载态、自定义下拉、判定弹框与逐题对错、本轮结算页与历史最高连对（跨会话只增不减、随备份往返）、11 类 819 条短语（已完成跨分类去重，全库 `en` 唯一；补齐过高频口语/习语/短语动词，后又新增 26 条影视高频台词、14 条电影常见习语、24 条叠词习语、62 条同词重复/成对搭配习语（16 条 `X is X` + 18 条重复结构 + 28 条高频成对搭配）、24 条一词多义成对短语（60 → 84）、以及 D4 首轮的 30 条正式搭配/难句（12 条 L5 类学术、10 条商务、8 条习语，全部带 `tip`；L5 从 0 升到 2%，`tip` 覆盖 3% → 7%）；全部 `exampleEn` 均含可挖空形式）；词库分批渲染与「练这 N 条」、统计页「最该复习的 5 条」、本轮草稿刷新恢复、弹框内朗读与背景 `inert`；UI 动效与配色已按 ui-studio 做有界精修与对比度验证（见 `QA.md`）；SEO/GEO 与 SSG 已落地 P0–P3（history 路由、旧 hash 重定向、build 期预渲染 13 页、分类落地页、canonical/OG/JSON-LD、robots/sitemap/llms.txt；11 类专属文案 + 练习建议 + 场景 + FAQ 及按页 `BreadcrumbList`/`CollectionPage`/`DefinedTermSet`/`FAQPage`；首页「今日一句」与分类页「5 条快练」；触屏 44px 可点区域，见 `docs/SEO.md`）；首页已宣传化（真实短语视差层、**真实数据驱动的产品演示区**、三步循环与深色结尾 CTA，训练入口与预渲染正文不变，已做 Chrome 截图复核，见 `QA.md`）。
 
 ### 5.2 开发中的模块
 
-无进行中的功能分支。`main` 已有两个提交：`332a49f` 初始化站点、`b2e5632` UI 动效/交互/配色精修；工作区干净，未 push。
+无进行中的功能分支。`origin/main` 停在 `fe22083`；本地 `main` 在其之上按主题各一个提交：D1 标签练习与错词插队（`738c5a0`）、D2 PWA（`d15d203`）、D3 首屏瘦身（`73e00bd`）、D4 内容补齐；这四项均未 push。
 
 ### 5.3 未完成计划
 
-`docs/PRODUCT.md` P3 列出：可选高频错词本。内容扩充持续进行，优先常见、简单、日常高频短语；贡献者内容校验脚本已完成（`pnpm check:content`）。SEO/GEO 方面 P0–P3 已全部完成；仅剩 P4（前 100 条短语详情页，需上线观察 4–6 周数据再定），见 `docs/SEO.md`。
+`docs/PRODUCT.md` P3 列出：可选高频错词本（已完成，见 A2）。内容扩充持续进行（D4 长尾）：当前 819 条，L5 2%、`tip` 7%，下一轮目标 L5 5%+；贡献者内容校验脚本已完成（`pnpm check:content`）。SEO/GEO 方面 P0–P3 已全部完成；仅剩 P4（前 100 条短语详情页，需上线观察 4–6 周数据再定），见 `docs/SEO.md`。
 
 ### 5.4 技术债务
 
@@ -316,10 +316,11 @@ Vitest，唯一测试文件 `src/lib/__tests__/core.test.ts`，当前 54 项。�
 
 ### 5.6 后续规划 / 路线图
 
-见 `docs/PRODUCT.md`「路线」与 `docs/ROADMAP.md`：A1/A2/A3/B1/B2 已完成，B3 第 1 轮已完成（后续常态），D1/D2/D3 已完成 → D4 内容补齐 → C1 SEO P4（待数据）/ C2 成绩卡 / C3 依赖升级；P0–P2 已完成，P3 进行中（当前 789 条，内容继续扩充）。架构/接口/约定变更时同步更新本文件，否则指南会快速腐化。
+见 `docs/PRODUCT.md`「路线」与 `docs/ROADMAP.md`：A1/A2/A3/B1/B2 已完成，B3 第 1 轮已完成（后续常态），D1/D2/D3 已完成、D4 第 1 轮已完成（长尾继续）→ C1 SEO P4（待数据）/ C2 成绩卡 / C3 依赖升级；P0–P2 已完成，P3 进行中（当前 819 条，L5 2%、tip 7%，内容继续扩充）。架构/接口/约定变更时同步更新本文件，否则指南会快速腐化。
 
 ## 6. 变更记录（本文件）
 
+- 2026-11-21：D4 第 1 轮完成（内容长尾）。新增 30 条正式搭配与难句：学术写作 12（`academic-051`–`062`）、商务邮件 10（`business-049`–`058`）、习语 8（`idioms-168`–`175`），全部带 `tip`；其中 L5 14 条、L4 16 条。软指标：总量 789 → 819，L5 0% → 2%，L4 8% → 10%，`tip` 3% → 7%。选型要求「中文容易说错 + 能写出一条可操作提醒」，例句尽量保留原形（`lend itself to` 因主谓一致例外，`enAliases` 收录复数形式）。README / PRODUCT / ARCHITECTURE / SEO / ROADMAP 与本文件的条数与分类数同步。
 - 2026-11-21：D3 完成。`HomeView.vue` 不再静态 `import gsap`，改为挂载后按 `requestIdleCallback(timeout 1500)`（Safari 退化 200ms）动态 `Promise.all([import('gsap'), import('gsap/ScrollTrigger')])`，`prefers-reduced-motion` 直接跳过；`mm` 改用 `{ revert: () => void }` 结构类型，避免类型引用把 gsap 拉回依赖图。首页首屏静态 JS（gzip）156.9 KiB → 130.1 KiB（−17.4%），产物里 `HomeView` chunk 不再静态 import `gsap-*.js`。**评估后不拆语料**：全量语料本身 92 KiB gz，且首页计数、已掌握数、标签汇总、今日一句都要它，拆包会牺牲预渲染正文与首页数据。
 - 2026-11-21：D2 完成。接入 `vite-plugin-pwa@2`（`registerType: 'prompt'`、`injectRegister: false`）+ `workbox-window`；`vite.config.ts` 生成 `sw.js` 与 `manifest.webmanifest`（`start_url`/`scope`/图标随 `base`），workbox 只做 precache（html 一并入缓存）+ `navigateFallback: 'index.html'`；`composables/usePwaUpdate.ts` 手动注册，`App.vue` 顶部「新版本已就绪」条；`postbuild` 新增 `sw.js`/manifest/icons 门禁；`apple-touch-icon.png` 补到 `public/` 根。断网实测首页 / `/study` / `/library` 均可用。
 - 2026-11-21：D1 完成。新增 `lib/tags.ts`（`collectTags` 按条数降序、`pickByTag`、`pickFeaturedTags` 保证首页先展示跨分类标签），`data/phrases/index.ts` 导出派生常量 `tagCounts`；词库新增主题 chip 行（可与分类/难度/状态叠加），首页新增「按主题练一轮」（随机 20 条）；`buildQueue` 改为「真到期（学过且到期）→ 错词插队（上限 `max(1, round(dailyGoal×0.3))`）→ 随机补足」，没学过的词不再当作到期项占满名额。测试 54 → 61 项。

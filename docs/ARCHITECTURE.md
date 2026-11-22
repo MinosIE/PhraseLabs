@@ -93,9 +93,9 @@ interface AppData {        // 导出/导入格式
 - 排版层级靠字号、字重、字距和衬线/等宽字体区分，而不是靠更多卡片和圆角。
 - 反馈同时用文字、图标与颜色表达，按钮/输入有明确焦点态；动效仅在 `prefers-reduced-motion` 未开启时播放。
 - `AnswerFeedback` 用 GSAP 做图标弹出、标题入场、庆祝粒子与连对里程碑；通过 `gsap.context()` 在卸载时统一清理，避免动画残留。
-- `HomeView` 的宣传动效走 `gsap.matchMedia()`：桌面做滚动视差、移动端只做入场位移、`prefers-reduced-motion` 直接到位；ScrollTrigger 只在 `onMounted` 内动态导入并注册（构建期 Node 无 `window`），卸载时 `mm.revert()`。首屏入场不设 `autoAlpha`，保证预渲染内容始终可见。
+- `HomeView` 的宣传动效走 `gsap.matchMedia()`：桌面做滚动视差、移动端只做入场位移、`prefers-reduced-motion` 直接到位。**gsap 与 ScrollTrigger 都不进首屏关键路径**：页面挂载后按 `requestIdleCallback`（Safari 退化 200ms）在 `setupMotion()` 里 `Promise.all` 动态导入，构建期 Node 不执行；`prefers-reduced-motion` 命中时连下载都省掉，卸载时 `mm.revert()`。首屏入场不设 `autoAlpha`，保证预渲染内容始终可见。
 - 词库搜索使用 `useDebounce` 延迟筛选，避免每次按键都遍历全库；搜索范围包含英文、中文、别名与标签。
-- 词库列表按 60 条一批渲染，底部 sentinel 进入视口后自动加载下一批，789 条不会一次性进入 DOM；筛选条件变化时回到第一批，收藏或进度变化不打断浏览位置。
+- 词库列表按 60 条一批渲染，底部 sentinel 进入视口后自动加载下一批，819 条不会一次性进入 DOM；筛选条件变化时回到第一批，收藏或进度变化不打断浏览位置。
 - 朗读能力由设备决定：`lib/speech.ts` 的 `ensureVoices()` 只探测一次并缓存结果（含空结果），`voiceschanged` 补齐后更新缓存；`settings` store 的 `voiceAvailable` 作为全局开关，无英文音色时学习页/弹框/词库都不渲染朗读入口，设置页下拉显示不可用文案。
 - `speakEn()` 的 Promise 在 `onstart` 时就完成，加载态只覆盖「点击到出声」；`cancel()` 与 `speak()` 之间留 60ms 间隔规避 Chrome 的静默问题。
 
