@@ -3,6 +3,14 @@ import { createPinia, setActivePinia } from 'pinia'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import { phrases, phraseById, phraseCountByCategory, tagCounts } from '@/data/phrases'
 import { detailOf, phraseDetails } from '@/data/phrases/details'
+import {
+  AMBIENT_PHRASES,
+  CATEGORY_COUNTS,
+  CATEGORY_SAMPLES,
+  FEATURED_TAG_COUNTS,
+  PHRASE_TOTAL,
+  RIBBON_PHRASES,
+} from '@/data/phrases/summary'
 import { categories } from '@/data/categories'
 import { categoryContent, contentOf } from '@/data/categoryContent'
 import { hashDay, pickDaily } from '@/lib/daily'
@@ -575,6 +583,24 @@ describe('内容数据', () => {
       return !forms.some((form) => toPattern(form).test(detailOf(phrase.id).exampleEn))
     })
     expect(broken.map((phrase) => phrase.id)).toEqual([])
+  })
+
+  it('首页摘要与语料一致（首页不读全量，只能靠这份摘要）', () => {
+    expect(PHRASE_TOTAL).toBe(phrases.length)
+    for (const [id, count] of Object.entries(CATEGORY_COUNTS)) {
+      expect(count).toBe(phrases.filter((phrase) => phrase.category === id).length)
+      const sample = phrases
+        .filter((phrase) => phrase.category === id)
+        .slice(0, 3)
+        .map((phrase) => phrase.en)
+      expect(CATEGORY_SAMPLES[id as CategoryId]).toEqual(sample)
+    }
+    for (const [tag, count] of Object.entries(FEATURED_TAG_COUNTS)) {
+      expect(count).toBe(phrases.filter((phrase) => phrase.tags.includes(tag)).length)
+    }
+    const ens = new Set(phrases.map((phrase) => phrase.en))
+    for (const item of AMBIENT_PHRASES) expect(ens.has(item.en)).toBe(true)
+    for (const en of RIBBON_PHRASES) expect(ens.has(en)).toBe(true)
   })
 
   it('基础语料与例句详情一一对应，没有孤儿详情', () => {

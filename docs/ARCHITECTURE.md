@@ -40,6 +40,8 @@ interface PhraseDetail {
 
 基座（`data/phrases/<分类>.ts`）与详情（`data/phrases/details/<分类>.ts`）是两条 barrel：`data/phrases/index.ts` 只聚合基座，`data/phrases/details/index.ts` 聚合详情。首页只引 `details/daily`，学习页 / 词库 / 分类页才引全量详情；否则例句会把首页首屏体积翻回去（见 `docs/ROADMAP.md` E1）。
 
+第三条是摘要 `data/phrases/summary.ts`：由 `scripts/gen-summary.mjs`（`pnpm gen:summary`）从语料生成，只含总量、分类计数与示例短语、主题标签计数、装饰短语。站点外壳（`App.vue`）与首页都只读摘要，不 import 全量语料——外壳在每个页面都会加载，曾经为 SEO 的描述与分类 JSON-LD 静态带着整份语料。摘要的一致性由 `pnpm check:content` 与 `core.test.ts` 双重校验，改了语料记得重新生成。
+
 ```ts
 interface PhraseProgress {
   stability: number      // 记忆稳定度（天）：到期时保留率降到 90%
@@ -111,7 +113,7 @@ interface AppData {        // 导出/导入格式
 
 - 路由是 history 模式（`/library`、`/phrases/daily`），每条可索引页面都有独立 URL 与预渲染 HTML。
 - `src/router/index.ts` **只导出 `routes` 路由表**。路由实例由 `vite-ssg` 在 `main.ts` 里按环境创建（构建期 memory history、运行期 web history），因此禁止在该文件 `createRouter`——构建期没有 `window`，web history 会直接崩。
-- 页面标题、描述、`robots`、canonical、OG/Twitter 与 JSON-LD 统一由 `src/App.vue` 的 `useHead` 按 `route.meta` 与 `src/lib/seo.ts` 输出；构建期即写成静态 HTML，不依赖客户端 JS。
+- 页面标题、描述、`robots`、canonical 与站点级 JSON-LD（WebSite / Organization / WebApplication）统一由 `src/App.vue` 的 `useHead` 按 `route.meta` 与 `src/lib/seo.ts` 输出；分类页额外的面包屑 / CollectionPage / FAQ 结构化数据由 `CategoryView.vue` 追加，这样外壳不必为 SEO 加载语料与分类文案。构建期即写成静态 HTML，不依赖客户端 JS。
 - 索引策略：`/`、`/library`、`/phrases/:category` 为 `index, follow`；`/study` 为 `noindex, follow`；`/stats`、`/settings` 为 `noindex, nofollow`。
 - 预渲染集合在 `vite.config.ts` 的 `ssgOptions.includedRoutes`：首页、词库与 11 个分类页（`dirStyle: 'flat'` → `dist/phrases/daily.html`）。应用界面不预渲染，由 `dist/404.html` + 客户端路由兜底。
 - `scripts/postbuild.mjs` 在 `vite-ssg build` 之后生成 `404.html`、`sitemap.xml`、`llms.txt` 并校验产物；它用正则从 `src/lib/seo.ts`（`SITE_URL`）、`src/data/categories.ts`（分类表）、`src/data/phrases/<id>.ts`（条数）取值，改数据即自动生效。
@@ -129,9 +131,10 @@ interface AppData {        // 导出/导入格式
 - 新增题型：扩展 `StudyMode`，在 `lib/session.ts` 的 `resolveMode` 分配，并在 `StudyView.vue` 增加提示与判定分支。
 - 新增分类：在 `types/phrase.ts` 增加 ID、在 `data/categories.ts` 登记、在 `data/categoryContent.ts` 补一整条 intro/scenario/tips/faq（`Record<CategoryId, …>` 漏键会编译失败），并新增对应数据文件（基座 + `details/<分类>.ts` 详情）后在两条 barrel 汇总；分类落地 页、sitemap、llms.txt、结构化数据会自动跟随（预渲染集合读 `categories.ts`）。
 - 新增页面：在 `router/index.ts` 注册路由并给 `meta.title` / `meta.robots`，在 `App.vue` 的 `DESCRIPTIONS` 补充描述；若要参与收录，还要加入 `vite.config.ts` 的 `includedRoutes`。
-- 让任意短语集合开练：调用 `session.startWith(ids, label)`，队列会忽略分类设置、不按每日目标截断；临时分类/模式用 `session.start({ categories, mode, label })`，均不写回设置。
+- 让任意短语集合开练：调用 `session.startWith(ids, label)`，队列会忽略分类设置、不按每日目标截断；临时分类/模式用 `session.start({ categories, mode, label })`，均不写回设置。`buildQueue` 会把传入的 `phraseIds` 与语料求交，未知 id 直接丢弃。
+- 首页入口用路由 query 协议：`/study?autostart=1&mode=mixed|zh-en|en-zh|cloze&scope=due|quick|tag|one&tag=<标签>&id=<短语 id>`，由 `StudyView.startFromQuery()` 取数开练并 `router.replace('/study')` 清 query；首页因此不必加载语料。新增入口沿用这套协议，不要在首页直接调 store 开练。
 - 更换存储：只需替换 `lib/storage.ts` 的读写函数，保持 `AppData` 与 `SessionDraft` 契约即可。
-- 内容校验：`scripts/validate-phrases.mjs` 借 Vite 的 SSR 加载器直接 import TS  数据（不写正则解析），检查 `id`/`en` 唯一、短语形态、别名长度、例句可挖空、基座与详情一一对应（每条都有 detail、无孤儿 detail）、分类计数与 README/PRODUCT 数字；挂在 `package.json` 的 `pretest`，`pnpm test` 前自动执行。
+- 内容校验：`scripts/validate-phrases.mjs` 借 Vite 的 SSR 加载器直接 import TS 数据（不写正则解析），检查 `id`/`en` 唯一、短语形态、别名长度、例句可挖空、基座与详情一一对应（每条都有 detail、无孤儿 detail）、首页摘要与语料一致、分类计数与 README/PRODUCT 数字；挂在 `package.json` 的 `pretest`，`pnpm test` 前自动执行。
 
 ## 已知边界
 

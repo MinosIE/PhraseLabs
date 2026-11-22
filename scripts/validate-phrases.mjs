@@ -28,15 +28,17 @@ async function loadData() {
     server: { middlewareMode: true },
   })
   try {
-    const [phraseModule, detailModule, categoryModule, normalizeModule] = await Promise.all([
+    const [phraseModule, detailModule, summaryModule, categoryModule, normalizeModule] = await Promise.all([
       server.ssrLoadModule('/src/data/phrases/index.ts'),
       server.ssrLoadModule('/src/data/phrases/details/index.ts'),
+      server.ssrLoadModule('/src/data/phrases/summary.ts'),
       server.ssrLoadModule('/src/data/categories.ts'),
       server.ssrLoadModule('/src/lib/normalize.ts'),
     ])
     return {
       phrases: phraseModule.phrases,
       phraseDetails: detailModule.phraseDetails,
+      summary: summaryModule,
       phraseCountByCategory: phraseModule.phraseCountByCategory,
       categories: categoryModule.categories,
       normalizeChinese: normalizeModule.normalizeChinese,
@@ -50,6 +52,7 @@ async function loadData() {
 function validatePhrases({
   phrases,
   phraseDetails,
+  summary,
   phraseCountByCategory,
   categories,
   normalizeChinese,
@@ -128,6 +131,59 @@ function validatePhrases({
   const declared = Object.values(phraseCountByCategory).reduce((sum, count) => sum + count, 0)
   if (declared !== phrases.length) {
     problems.push(`phraseCountByCategory 合计 ${declared} 与短语总数 ${phrases.length} 不符`)
+  }
+
+  problems.push(...validateSummary({ phrases, summary, categories }))
+
+  return problems
+}
+
+/** 首页不读全量语料，只读 summary.ts；它必须与真实数据逐项一致，否则首页会报错数字 */
+function validateSummary({ phrases, summary, categories }) {
+  const problems = []
+  const { PHRASE_TOTAL, CATEGORY_COUNTS, CATEGORY_SAMPLES, FEATURED_TAG_COUNTS, AMBIENT_PHRASES, RIBBON_PHRASES } =
+    summary
+
+  if (PHRASE_TOTAL !== phrases.length) {
+    problems.push(`summary 的 PHRASE_TOTAL=${PHRASE_TOTAL}，实际 ${phrases.length}（跑 pnpm gen:summary）`)
+  }
+
+  const actualCounts = new Map()
+  const actualTags = new Map()
+  for (const phrase of phrases) {
+    actualCounts.set(phrase.category, (actualCounts.get(phrase.category) ?? 0) + 1)
+    for (const tag of phrase.tags ?? []) actualTags.set(tag, (actualTags.get(tag) ?? 0) + 1)
+  }
+  for (const category of categories) {
+    const expected = actualCounts.get(category.id) ?? 0
+    if (CATEGORY_COUNTS[category.id] !== expected) {
+      problems.push(
+        `summary 的分类 ${category.id} 写的是 ${CATEGORY_COUNTS[category.id]}，实际 ${expected}（跑 pnpm gen:summary）`,
+      )
+    }
+    const expectedSample = phrases
+      .filter((phrase) => phrase.category === category.id)
+      .slice(0, 3)
+      .map((phrase) => phrase.en)
+    if (JSON.stringify(CATEGORY_SAMPLES[category.id] ?? []) !== JSON.stringify(expectedSample)) {
+      problems.push(`summary 的分类 ${category.id} 示例短语与语料前 3 条不一致（跑 pnpm gen:summary）`)
+    }
+  }
+  for (const [tag, count] of Object.entries(FEATURED_TAG_COUNTS)) {
+    const expected = actualTags.get(tag) ?? 0
+    if (count !== expected) {
+      problems.push(`summary 的标签「${tag}」写的是 ${count}，实际 ${expected}（跑 pnpm gen:summary）`)
+    }
+  }
+
+  const byEn = new Map(phrases.map((phrase) => [phrase.en, phrase.id]))
+  for (const ambient of AMBIENT_PHRASES) {
+    if (byEn.get(ambient.en) !== ambient.id) {
+      problems.push(`summary 的视差短语「${ambient.en}」在语料里找不到对应 id（跑 pnpm gen:summary）`)
+    }
+  }
+  for (const en of RIBBON_PHRASES) {
+    if (!byEn.has(en)) problems.push(`summary 的短语带「${en}」在语料里不存在（跑 pnpm gen:summary）`)
   }
 
   return problems

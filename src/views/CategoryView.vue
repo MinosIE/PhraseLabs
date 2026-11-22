@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
+import { useHead } from '@unhead/vue'
 import { contentOf } from '@/data/categoryContent'
 import { categories } from '@/data/categories'
 import { phraseCountByCategory, phrases } from '@/data/phrases'
 import { detailOf } from '@/data/phrases/details'
+import { canonicalUrl } from '@/lib/seo'
 import { useSessionStore } from '@/stores/session'
 
 const route = useRoute()
@@ -39,6 +41,61 @@ function startCategory(): void {
 }
 
 const content = computed(() => (category.value ? contentOf(category.value.id) : undefined))
+
+// 分类页的 JSON-LD 放在页面里：外壳因此不必为了 SEO 静态加载全量语料与分类文案
+useHead(() => {
+  const current = category.value
+  const text = content.value
+  if (!current || !text) return {}
+  const pageUrl = canonicalUrl(`/phrases/${current.id}`)
+  const list = items.value
+  return {
+    script: [
+      {
+        type: 'application/ld+json',
+        innerHTML: JSON.stringify({
+          '@context': 'https://schema.org',
+          '@graph': [
+            {
+              '@type': 'BreadcrumbList',
+              itemListElement: [
+                { '@type': 'ListItem', position: 1, name: '首页', item: canonicalUrl('/') },
+                { '@type': 'ListItem', position: 2, name: '词库', item: canonicalUrl('/library') },
+                { '@type': 'ListItem', position: 3, name: `${current.name}英语短语`, item: pageUrl },
+              ],
+            },
+            {
+              '@type': 'CollectionPage',
+              name: `${current.name}英语短语`,
+              url: pageUrl,
+              inLanguage: 'zh-CN',
+              description: text.intro,
+              numberOfItems: list.length,
+              mainEntity: {
+                '@type': 'DefinedTermSet',
+                name: `${current.name}英语短语`,
+                hasDefinedTerm: list.slice(0, 12).map((phrase) => ({
+                  '@type': 'DefinedTerm',
+                  name: phrase.en,
+                  description: phrase.zh,
+                  inDefinedTermSet: pageUrl,
+                })),
+              },
+            },
+            {
+              '@type': 'FAQPage',
+              mainEntity: text.faq.map((entry) => ({
+                '@type': 'Question',
+                name: entry.q,
+                acceptedAnswer: { '@type': 'Answer', text: entry.a },
+              })),
+            },
+          ],
+        }),
+      },
+    ],
+  }
+})
 
 /** 5 条快练：给刚从搜索结果进来的访客一个 30 秒就能完成的入口 */
 function startQuick(): void {

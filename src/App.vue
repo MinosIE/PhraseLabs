@@ -3,8 +3,7 @@ import { computed, onMounted, onUnmounted, watch } from 'vue'
 import { RouterLink, RouterView, useRoute } from 'vue-router'
 import { useHead } from '@unhead/vue'
 import { categories } from '@/data/categories'
-import { contentOf } from '@/data/categoryContent'
-import { phraseCountByCategory, phrases } from '@/data/phrases'
+import { CATEGORY_COUNTS, CATEGORY_SAMPLES, PHRASE_TOTAL } from '@/data/phrases/summary'
 import {
   applyPwaUpdate,
   dismissUpdate,
@@ -20,8 +19,8 @@ const settingsStore = useSettingsStore()
 const theme = computed(() => settingsStore.settings.theme)
 
 const DESCRIPTIONS: Record<string, string> = {
-  home: `${phrases.length} 条英语短语、${categories.length} 个分类，中译英 / 英译中 / 例句填空即时判定，按艾宾浩斯遗忘曲线安排复习，无需注册，进度只存在本机。`,
-  library: `按分类、难度与掌握度筛选 ${phrases.length} 条英语短语，查看中英释义与双语例句，可直接把筛选结果变成一轮训练。`,
+  home: `${PHRASE_TOTAL} 条英语短语、${categories.length} 个分类，中译英 / 英译中 / 例句填空即时判定，按艾宾浩斯遗忘曲线安排复习，无需注册，进度只存在本机。`,
+  library: `按分类、难度与掌握度筛选 ${PHRASE_TOTAL} 条英语短语，查看中英释义与双语例句，可直接把筛选结果变成一轮训练。`,
   study: '短语答题界面：键盘输入、即时判定，答错自动排到本轮队尾重练。',
   stats: '本机学习统计：连续天数、正确率、每周趋势与分类掌握度。',
   settings: '每日目标、题型、分类、判定严格度、主题与朗读音色设置。',
@@ -37,12 +36,8 @@ const seo = computed(() => {
         robots: 'noindex, follow',
       }
     }
-    const count = phraseCountByCategory[category.id] ?? 0
-    const sample = phrases
-      .filter((phrase) => phrase.category === category.id)
-      .slice(0, 3)
-      .map((phrase) => phrase.en)
-      .join('、')
+    const count = CATEGORY_COUNTS[category.id] ?? 0
+    const sample = (CATEGORY_SAMPLES[category.id] ?? []).join('、')
     return {
       title: `${category.name}英语短语 · ${count} 条`,
       description: `${category.name}共 ${count} 条英语短语，如 ${sample}。可做中译英、英译中与例句填空练习，答错自动重练。`,
@@ -91,9 +86,9 @@ useHead(() => {
   }
 })
 
-/** 首页输出站点级实体；分类页额外输出面包屑、词条集合与 FAQ */
+/** 站点级结构化数据放在外壳里；分类页的面包屑 / 词条 / FAQ 由 CategoryView 追加 */
 function buildStructuredData(): Record<string, unknown>[] {
-  const graph: Record<string, unknown>[] = [
+  return [
     { '@type': 'WebSite', name: SITE_NAME, url: canonicalUrl('/'), inLanguage: 'zh-CN' },
     { '@type': 'Organization', name: SITE_NAME, url: canonicalUrl('/') },
     {
@@ -107,58 +102,6 @@ function buildStructuredData(): Record<string, unknown>[] {
       offers: { '@type': 'Offer', price: '0', priceCurrency: 'CNY' },
     },
   ]
-
-  if (route.name !== 'category') return graph
-  const category = categories.find((item) => item.id === route.params.category)
-  const content = category ? contentOf(category.id) : undefined
-  if (!category || !content) return graph
-
-  const pageUrl = canonicalUrl(`/phrases/${category.id}`)
-  const items = phrases.filter((phrase) => phrase.category === category.id)
-
-  graph.push(
-    {
-      '@type': 'BreadcrumbList',
-      itemListElement: [
-        { '@type': 'ListItem', position: 1, name: '首页', item: canonicalUrl('/') },
-        { '@type': 'ListItem', position: 2, name: '词库', item: canonicalUrl('/library') },
-        {
-          '@type': 'ListItem',
-          position: 3,
-          name: `${category.name}英语短语`,
-          item: pageUrl,
-        },
-      ],
-    },
-    {
-      '@type': 'CollectionPage',
-      name: `${category.name}英语短语`,
-      url: pageUrl,
-      inLanguage: 'zh-CN',
-      description: content.intro,
-      numberOfItems: items.length,
-      mainEntity: {
-        '@type': 'DefinedTermSet',
-        name: `${category.name}英语短语`,
-        hasDefinedTerm: items.slice(0, 12).map((phrase) => ({
-          '@type': 'DefinedTerm',
-          name: phrase.en,
-          description: phrase.zh,
-          inDefinedTermSet: pageUrl,
-        })),
-      },
-    },
-    {
-      '@type': 'FAQPage',
-      mainEntity: content.faq.map((entry) => ({
-        '@type': 'Question',
-        name: entry.q,
-        acceptedAnswer: { '@type': 'Answer', text: entry.a },
-      })),
-    },
-  )
-
-  return graph
 }
 
 const THEME_ORDER: Theme[] = ['system', 'light', 'dark']

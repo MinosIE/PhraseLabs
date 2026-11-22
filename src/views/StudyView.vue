@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import AnswerInput from '@/components/AnswerInput.vue'
 import AnswerFeedback from '@/components/AnswerFeedback.vue'
 import { categories } from '@/data/categories'
@@ -8,13 +9,16 @@ import { detailOf } from '@/data/phrases/details'
 import { DAY_MS, dayKey, formatDate } from '@/lib/date'
 import { gradeAnswer, type GradeResult } from '@/lib/grade'
 import { shuffle } from '@/lib/session'
+import { pickByTag } from '@/lib/tags'
 import { countDueBefore, isMastered } from '@/lib/srs'
 import { speakEn } from '@/lib/speech'
 import { useProgressStore } from '@/stores/progress'
 import { useSessionStore, type StartOptions } from '@/stores/session'
 import { useSettingsStore } from '@/stores/settings'
-import type { StudyMode } from '@/types/phrase'
+import type { ModeSetting, StudyMode } from '@/types/phrase'
 
+const router = useRouter()
+const route = useRoute()
 const progressStore = useProgressStore()
 const sessionStore = useSessionStore()
 const settingsStore = useSettingsStore()
@@ -420,8 +424,60 @@ function onGlobalKey(event: KeyboardEvent): void {
   }
 }
 
+const VALID_MODES: ModeSetting[] = ['mixed', 'zh-en', 'en-zh', 'cloze']
+
+/**
+ * 首页把入口参数放在 query 里（首页因此不加载全量语料），真正的开练在这里发生：
+ * `/study?autostart=1&mode=cloze&scope=tag&tag=口语`、`scope=due|quick|one`。
+ */
+function startFromQuery(): boolean {
+  if (route.query.autostart !== '1') return false
+
+  const mode = String(route.query.mode ?? '')
+  if ((VALID_MODES as string[]).includes(mode)) settingsStore.setMode(mode as ModeSetting)
+
+  const scope = String(route.query.scope ?? '')
+  if (scope === 'due') {
+    const batch = Math.max(5, settingsStore.settings.dailyGoal)
+    const ids = Object.entries(progressStore.progress)
+      .filter(([, item]) => item.nextReview <= Date.now())
+      .sort(([, a], [, b]) => a.nextReview - b.nextReview)
+      .map(([id]) => id)
+      .slice(0, batch)
+    if (ids.length) sessionStore.startWith(ids, '到期复习')
+    else sessionStore.start()
+  } else if (scope === 'quick') {
+    sessionStore.startWith(
+      shuffle(phrases).slice(0, 5).map((item) => item.id),
+      '5 条快练',
+    )
+  } else if (scope === 'tag') {
+    const tag = String(route.query.tag ?? '')
+    const sample = shuffle(pickByTag(phrases, tag)).slice(0, 20)
+    if (sample.length) {
+      sessionStore.startWith(
+        sample.map((item) => item.id),
+        `主题 · ${tag} · ${sample.length} 条`,
+      )
+    } else {
+      sessionStore.start()
+    }
+  } else if (scope === 'one') {
+    const id = String(route.query.id ?? '')
+    if (phraseById.has(id)) sessionStore.startWith([id], '今日一句')
+    else sessionStore.start()
+  } else {
+    sessionStore.start()
+  }
+
+  // 清掉 query：刷新时按草稿恢复，而不是又开一轮
+  void router.replace({ path: '/study' })
+  return true
+}
+
 onMounted(() => {
-  if (!sessionStore.current && !sessionStore.finished) {
+  const autoStarted = startFromQuery()
+  if (!autoStarted && !sessionStore.current && !sessionStore.finished) {
     // 先尝试恢复当天的本轮草稿，刷新页面不会丢掉这一轮进度
     if (!sessionStore.restore()) sessionStore.start()
   }

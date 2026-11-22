@@ -1,5 +1,42 @@
 # QA 验证记录
 
+## 2026-11-22 · E2 首页去语料（roadmap E2）
+
+### 自动化
+
+- `pnpm check:content`：11 类 / 819 条通过；`validateSummary` 覆盖总量、分类计数、分类示例短语、标签计数、装饰短语与语料一致；摘要过期会提示「跑 pnpm gen:summary」。
+- `pnpm test`：**63/63**（新增「首页摘要与语料一致」扩展了分类示例）；`pnpm typecheck` / `pnpm build` 通过，`[postbuild]` 报告「11 个分类 / 819 条短语」。
+
+### 首屏体积（gzip，静态 import 图实测）
+
+| 阶段 | 首屏静态 JS | 变化 |
+| --- | --- | --- |
+| D3 完成 | 130.1 KiB | — |
+| E1 完成 | 112.8 KiB | −13.3% |
+| E2 完成 | **74.2 KiB** | **−38.6 KiB（−34.2%）** |
+
+chunk 明细：`app` 53.8 + `HomeView` 7.8 + `progress` 7.4 + `daily` 7.0。全量基座 `phrases` 28.7 与全量 `details` 30.9 都不在首屏；`app` chunk 中语料 id 出现次数为 0（「book a table」等字符串只来自摘要里的分类示例与短语带）。
+
+> 未达到开盘时估的 ~65 KiB：`app` 剩下的 53.8 KiB 主要是 Vue / Router / Pinia / unhead 与 store 的框架成本；首页保留 `daily` 基座 7.0（今日一句 + 演示区）与 `progress`（掌握度 / 到期计数）。
+
+### 预渲染产物
+
+- 13 个页面正常生成；`dist/phrases/academic.html` 标题「学术写作英语短语 · 60 条」，meta 描述含「in light of、contribute to、account for」。
+- 分类页含 2 段 `application/ld+json`：站点级（`WebSite/Organization/WebApplication`）与页面级（`BreadcrumbList/CollectionPage/FAQPage`）；首页只有站点级 1 段。
+
+### 浏览器实测（preview :4192）
+
+- 首页 console 0 报错。点「练这一条」（今日一句 `not gonna lie`）→ `/study`，URL 无 query，首题正是该短语；点「开始今日训练」→ `/study` 正常出题。
+- 点「5 条快练」→ `/study`，轮次标签「5 条快练」、SESSION 01/05；点主题「口语」→「主题 · 口语 · 20 条」；两处 URL 均无 query。
+- 在 `/study` 刷新：按草稿恢复同一轮，无报错。
+- 写入一条到期进度（`phraselabs:v1:progress`，`daily-001` 的 `nextReview` 在过去）后刷新首页，出现「待复习 1 条」入口；点击后进 `/study`、轮次标签「到期复习」、URL 无 query；清除进度后首页恢复正常。
+- `/phrases/academic`：60 条，可见 `in light of`；全程 console 错误 0。
+
+### 未验证 / 边界
+
+- 同上：74.2 KiB 是静态 import 图的 gzip 合计，不等于线上传输（还有 HTML/CSS）。
+- 窄屏与深色主题本轮未重跑截图（布局未改，仅数据来源与导航方式变化）。
+
 ## 2026-11-22 · E1 首屏数据二次拆分（roadmap E1）
 
 ### 自动化

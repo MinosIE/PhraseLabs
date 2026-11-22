@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "typecheck": "vue-tsc -b",
     "check:content": "node scripts/validate-phrases.mjs",
+    "gen:summary": "node scripts/gen-summary.mjs",
     "pretest": "node scripts/validate-phrases.mjs",
     "test": "vitest run",
     "test:watch": "vitest"

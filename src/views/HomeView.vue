@@ -2,16 +2,21 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { categories } from '@/data/categories'
-import { phraseById, phraseCountByCategory, phrases, tagCounts } from '@/data/phrases'
+// 首页只读摘要与日常口语，不引入全量语料：语料全在懒加载的学习/词库/分类页里
+import {
+  AMBIENT_PHRASES,
+  CATEGORY_COUNTS,
+  FEATURED_TAG_COUNTS,
+  PHRASE_TOTAL,
+  RIBBON_PHRASES,
+} from '@/data/phrases/summary'
 import { dailyPhrases } from '@/data/phrases/daily'
-// 只引日常口语的例句：首页不该为 819 条例句买单，其余分类留给学习/词库/分类页
 import { dailyDetails } from '@/data/phrases/details/daily'
-import type { PhraseDetail } from '@/types/phrase'
+import type { ModeSetting, PhraseDetail } from '@/types/phrase'
 import { pickDaily } from '@/lib/daily'
 import { dayKey } from '@/lib/date'
-import { shuffle } from '@/lib/session'
+import { loadSessionDraft } from '@/lib/storage'
 import { speakEn } from '@/lib/speech'
-import { pickByTag, pickFeaturedTags } from '@/lib/tags'
 import {
   computeStreak,
   DECAY,
@@ -21,13 +26,10 @@ import {
   TARGET_RETENTION,
 } from '@/lib/srs'
 import { useProgressStore } from '@/stores/progress'
-import { useSessionStore } from '@/stores/session'
 import { useSettingsStore } from '@/stores/settings'
-import type { ModeSetting } from '@/types/phrase'
 
 const router = useRouter()
 const progressStore = useProgressStore()
-const sessionStore = useSessionStore()
 const settingsStore = useSettingsStore()
 
 const today = computed(
@@ -35,7 +37,7 @@ const today = computed(
 )
 const streak = computed(() => computeStreak(progressStore.stats))
 const mastered = computed(
-  () => phrases.filter((phrase) => isMastered(progressStore.progress[phrase.id])).length,
+  () => Object.values(progressStore.progress).filter((item) => isMastered(item)).length,
 )
 const totalReviews = computed(() =>
   Object.values(progressStore.stats).reduce((sum, day) => sum + day.reviewed, 0),
@@ -104,7 +106,12 @@ const growthText = `×${GROWTH.toFixed(1)}`
 const goalPercent = computed(() =>
   Math.min(100, Math.round((today.value.reviewed / settingsStore.settings.dailyGoal) * 100)),
 )
-const resumable = computed(() => sessionStore.queue.length > 0 && !sessionStore.finished)
+// 草稿存在与否只能在浏览器里判断；放到挂载后才有值，避免预渲染与客户端首帧不一致
+const resumable = ref(false)
+onMounted(() => {
+  const draft = loadSessionDraft()
+  resumable.value = Boolean(draft && !draft.finished)
+})
 const remaining = computed(() =>
   Math.max(0, settingsStore.settings.dailyGoal - today.value.reviewed),
 )
@@ -122,9 +129,12 @@ const modes: { value: ModeSetting; label: string; description: string }[] = [
 ]
 
 function start(mode?: ModeSetting): void {
-  if (mode) settingsStore.setMode(mode)
-  sessionStore.start()
-  void router.push('/study')
+  goStudy(mode ? { mode } : {})
+}
+
+/** 首页只负责导航：真正开练交给学习页，首页因此不必加载全量语料 */
+function goStudy(params: Record<string, string> = {}): void {
+  void router.push({ path: '/study', query: { autostart: '1', ...params } })
 }
 
 function resume(): void {
@@ -132,47 +142,30 @@ function resume(): void {
 }
 
 /** 到期复习：只算学过的短语，一次最多推到每日目标的题量 */
-const reviewBatch = computed(() => Math.max(5, settingsStore.settings.dailyGoal))
 const dueIds = computed(() =>
   Object.entries(progressStore.progress)
     .filter(([, item]) => item.nextReview <= Date.now())
     .sort(([, a], [, b]) => a.nextReview - b.nextReview)
-    .map(([id]) => id)
-    .filter((id) => phraseById.has(id)),
+    .map(([id]) => id),
 )
 const dueCount = computed(() => dueIds.value.length)
 
 function startDue(): void {
-  sessionStore.startWith(dueIds.value.slice(0, reviewBatch.value), '到期复习')
-  void router.push('/study')
+  if (!dueIds.value.length) return
+  goStudy({ scope: 'due' })
 }
 
 /** 5 条快练：随机抽 5 条，30 秒内能走完一轮 */
 function startQuick(): void {
-  sessionStore.startWith(
-    shuffle(phrases).slice(0, 5).map((phrase) => phrase.id),
-    '5 条快练',
-  )
-  void router.push('/study')
+  goStudy({ scope: 'quick' })
 }
 
-/**
- * 首页主题优先展示「跨分类」的标签：习语、动词短语、介词搭配这类本身就是分类，
- * 分类卡片已经给过入口，再占首页名额会把职场 / 邮件 / 影视挤没。
- */
-const FEATURED_TAGS = ['口语', '高频', '职场', '邮件', '影视', '正式', '基础', '重复']
-const practiceTags = pickFeaturedTags(tagCounts, FEATURED_TAGS)
-const TAG_BATCH = 20
+/** 主题标签与条数由 `pnpm gen:summary` 生成，`check:content` 校验与语料一致 */
+const practiceTags = Object.entries(FEATURED_TAG_COUNTS).map(([tag, count]) => ({ tag, count }))
 
 /** 按主题开练：从该标签下随机抽 20 条，短时练完；想要全部就去词库筛选 */
 function startTag(tag: string): void {
-  const sample = shuffle(pickByTag(phrases, tag)).slice(0, TAG_BATCH)
-  if (!sample.length) return
-  sessionStore.startWith(
-    sample.map((phrase) => phrase.id),
-    `主题 · ${tag} · ${sample.length} 条`,
-  )
-  void router.push('/study')
+  goStudy({ scope: 'tag', tag })
 }
 
 /** 今日一句：只从日常口语池取（同一天内稳定，跨天自动换）；池子限于 daily 是为了不把全量例句拉进首屏 */
@@ -186,8 +179,7 @@ const dailyDetail = computed(() =>
 
 function practiseDaily(): void {
   if (!daily.value) return
-  sessionStore.startWith([daily.value.id], '今日一句')
-  void router.push('/study')
+  goStudy({ scope: 'one', id: daily.value.id })
 }
 
 function speakDaily(): void {
@@ -200,20 +192,9 @@ function speakDaily(): void {
     })
 }
 
-/** 视差背景与短语带都取自真实语料；内容变动时自动降级，不写死装饰文案 */
-const ambientSource = ['good morning', 'no problem', 'be careful']
-const ambientPhrases = computed(() => {
-  const matched = phrases.filter((phrase) => ambientSource.includes(phrase.en))
-  return matched.length >= 2 ? matched.slice(0, 3) : phrases.slice(0, 3)
-})
-const ribbonText = computed(() =>
-  phrases
-    .filter((phrase) =>
-      ['book a table', 'in the long run', 'on the other hand', 'no problem'].includes(phrase.en),
-    )
-    .slice(0, 4)
-    .map((phrase) => phrase.en),
-)
+/** 视差背景与短语带取自语料摘要（由 `pnpm gen:summary` 生成，删词会直接报错） */
+const ambientPhrases = AMBIENT_PHRASES
+const ribbonText = RIBBON_PHRASES
 
 /** 演示区用真实短语与例句，展示「看提示 → 写出 → 判定」的完整闭环 */
 const demoPhrase = computed(
@@ -413,7 +394,7 @@ onUnmounted(() => {
 
     <section class="stat-strip" aria-label="站点概览">
       <div class="stat-item">
-        <div class="stat-value">{{ phrases.length }}</div>
+        <div class="stat-value">{{ PHRASE_TOTAL }}</div>
         <div class="stat-label">条精选短语</div>
       </div>
       <div class="stat-item">
@@ -617,7 +598,7 @@ onUnmounted(() => {
         <article class="feature">
           <span class="feature-num">02</span>
           <h3>练的是完整短语</h3>
-          <p>{{ phrases.length }} 条短语，含动词短语、介词搭配与习语；每条配双语例句与用法提示。</p>
+          <p>{{ PHRASE_TOTAL }} 条短语，含动词短语、介词搭配与习语；每条配双语例句与用法提示。</p>
         </article>
         <article class="feature">
           <span class="feature-num">03</span>
@@ -638,7 +619,7 @@ onUnmounted(() => {
           <div class="eyebrow">Browse</div>
           <h2 id="cats-heading" style="margin-top: 8px">按场景找短语</h2>
         </div>
-        <RouterLink class="small muted" to="/library">全部 {{ phrases.length }} 条 · 词库 ↗</RouterLink>
+        <RouterLink class="small muted" to="/library">全部 {{ PHRASE_TOTAL }} 条 · 词库 ↗</RouterLink>
       </div>
       <div class="category-grid">
         <RouterLink
@@ -649,7 +630,7 @@ onUnmounted(() => {
         >
           <span class="category-icon" aria-hidden="true">{{ category.icon }}</span>
           <span class="category-name">{{ category.name }}</span>
-          <span class="category-count">{{ phraseCountByCategory[category.id] ?? 0 }} 条</span>
+          <span class="category-count">{{ CATEGORY_COUNTS[category.id] ?? 0 }} 条</span>
         </RouterLink>
       </div>
       <p class="small muted" style="margin-top: 14px">

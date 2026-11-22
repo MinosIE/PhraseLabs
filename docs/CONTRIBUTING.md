@@ -34,11 +34,14 @@ export const dailyDetails: Record<string, PhraseDetail> = {
 
 > 为什么拆两个文件：例句占语料近半字符，但首页只需要计数与今日一句；详情单独成块后，首页不必下载 819 条例句（见 `docs/ROADMAP.md` E1）。
 
+改完语料后还要跑一次 `pnpm gen:summary`：首页与站点外壳只读 `src/data/phrases/summary.ts`（总量、分类计数与示例、标签计数、装饰短语），这份文件由脚本从语料生成；不重新生成会让首页数字与 meta 描述停在旧值，`check:content` 也会报不一致。
+
 ## 提交前检查
 
 ```bash
 pnpm install
-pnpm check:content   # 内容自检：id/en 唯一、别名长度、例句可挖空、基座与详情一一对应、文档条数
+pnpm gen:summary   # 改了任何短语/分类后先重生成首页摘要
+pnpm check:content   # 内容自检：id/en 唯一、别名长度、例句可挖空、基座与详情一一对应、摘要一致、文档条数
 pnpm test            # pretest 会先自动跑一遍上面的检查
 pnpm typecheck
 pnpm build
@@ -46,7 +49,7 @@ pnpm build
 
 自检清单：
 
-- [ ] `pnpm check:content` 无输出问题项
+- [ ] `pnpm check:content` 无输出问题项（含摘要与语料一致）
 - [ ] `id` 唯一，序号未与现有条目冲突
 - [ ] `aliases` 覆盖常见中文说法，且每个关键词不少于 2 字
 - [ ] 英文例句自然并包含该短语（或 `enAliases` 里的变体），填空模式能挖出空

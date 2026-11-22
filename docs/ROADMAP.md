@@ -1,7 +1,7 @@
 # 下一步计划（Roadmap）
 
 > 维护约定：每完成一项就在这里勾掉并把细节挪进 `docs/PRODUCT.md` / `docs/ARCHITECTURE.md`；新增计划先写清「做 / 不做 / 验收」，再动代码。
-> 最后更新：2026-11-22 · 适用：`main` 分支（当前 E1 待提交）
+> 最后更新：2026-11-22 · 适用：`main` 分支（E1 已推送，E2 已实施）
 
 ## 0. 基线快照
 
@@ -10,10 +10,10 @@
 | 内容 | 11 类 / 819 条短语，`pnpm check:content` 全过（id/en 唯一、别名 ≥2 汉字、`exampleEn` 可挖空、文档数字一致） |
 | 题型 | 中→英 / 英→中 / 例句填空 + 混合（`mixed` 只在生成队列时解析） |
 | 记忆 | 记忆稳定度 + 保留率 \(R=0.9^{\Delta t/S}\)，答对 ×1.9、答错 ×0.4，≥15 天算掌握；旧 Leitner `box` 自动换算为 1/1/2/4/7/15 天 |
-| 测试 | Vitest 单文件 62 项，`pretest` 自动跑内容校验 |
+| 测试 | Vitest 单文件 63 项，`pretest` 自动跑内容校验 |
 | 构建 | vite-ssg 预渲染 13 页（首页 + 词库 + 11 分类）；`postbuild` 生成 404 / sitemap / llms.txt 并校验产物 |
 | 部署 | GitHub Pages + Actions（先测后构建）；`main` 推送即发布；PWA 产物（`sw.js` / `manifest.webmanifest`）随构建生成，`postbuild` 校验 |
-| 首屏 | 首页静态 JS 共 6 个 chunk / 112.8 KiB（gzip）：`settings`（基座语料 + 共享 store）66.8 + `app` 30.9 + `HomeView` 8.0 + `details/daily` 7.0 + `session`/`progress` 2.8；全量 `details` 30.9 KiB 不进首屏；gsap + ScrollTrigger 首帧后按需加载 |
+| 首屏 | 首页静态 JS 共 4 个 chunk / 74.2 KiB（gzip）：`app`（外壳 + 框架 + settings/progress store）53.8 + `HomeView` 7.8 + `progress` 7.4 + `daily`（日常口语基座，供今日一句/演示区）7.0；全量基座 28.7 与全量 `details` 30.9 都不进首屏；gsap + ScrollTrigger 首帧后按需加载 |
 | 已知债务 | 配置层用正则读 TS 源（`vite.config.ts` / `postbuild.mjs`）；分类文案里举例了具体条目 |
 
 ## 1. 优先级总览
@@ -34,6 +34,7 @@
 | D3 | 首屏瘦身（动画库移出关键路径） | 中（移动端首屏） | 0.5 天 | 依赖 D2 的缓存策略 | R4 | ✅ 2026-11-21 |
 | D4 | 内容补齐（L5 难度 + tip 覆盖） | 中（内容纵深） | 长尾 | 无 | 持续 | 第 1 轮已完成 2026-11-21（819 条，L5 2%、tip 7%），后续继续 |
 | E1 | 首屏数据二次拆分（例句/提示懒加载） | 高（移动端首屏） | 2 天 | 无 | 紧跟 D3 | ✅ 2026-11-22（130.1 → 112.8 KiB，−13.3%） |
+| E2 | 首页去语料（入口协议 + 摘要常量） | 高（移动端首屏） | 1 天 | E1 | 紧跟 E1 | ✅ 2026-11-22（112.8 → 74.2 KiB，−34.2%） |
 
 ## 2. 详细方案
 
@@ -299,9 +300,41 @@ D3 只把动画库移出了关键路径；首屏最大的一块仍是全量语�
 - **没达到开盘时估的 −35%，原因已查清**：按字符占比，例句占 49.3%，但例句是自然语言、gzip 压缩率远低于 `en/zh/aliases/tags` 这类高重复短文本——全量详情实测为 30.9 KiB，只占原语料 92.3 KiB 的 **33%**。按字符占比估算会高估收益，后续一律以 gzip 实测为准。
 - 另一个没算进去的入口：首页通过 `stores/session.ts`（静态 import `phrases/phraseById`）仍然背着全量基座语料，所以即使 HomeView 不直接引用，语料也回不到零。
 - 已验证：819 条 base 与 detail 逐字段比对通过；新增两条硬校验；62 项测试（原 61 + 1）；`typecheck` / `build` 通过；13 页仍为 `vocabulary` 预渲染页面，分类页 HTML 仍有例句。
-- **下一刀（E2，待评估）**：首页不再静态依赖语料（把「开始/到期/主题/快练」改成路由 query，由 StudyView 负责取数；计数与标签改用构建期校验的摘要常量），预计首屏再降到 **~60 KiB**。
+- **下一刀**：见 E2（首页去语料）。
 
 **文档**：`ARCHITECTURE`（数据层与 chunk 划分）、`AGENTS`（目录树、字段契约、§3.3 联动表、变更记录）、`CONTRIBUTING`（新增短语仍要写详情文件）、`PRODUCT`（今日一句池子）、`QA`、本文件。
+
+---
+
+#### E2 · 首页去语料（P1）
+
+**背景**：E1 只把例句拆了出去，首页仍然静态 import 全量基座。更隐蔽的一层：**真正背着语料的是外壳 `App.vue`**——它为 SEO 的 meta 描述与分类页 JSON-LD 直接 import 了 `phrases` 与 `categoryContent`，而外壳在每个页面都加载。
+
+**做什么**
+
+- 首页只负责导航：所有入口（开始 / 到期复习 / 5 条快练 / 主题练 / 今日一句）改为跳 `/study?autostart=1&scope=...`，由 `StudyView.startFromQuery()` 取数开练，随后 `router.replace('/study')` 清 query（刷新时回到草稿恢复）。
+- `buildQueue` 会把 `phraseIds` 与语料求交，未知 id 天然被丢弃，因此首页不必再用 `phraseById.has()` 过滤。
+- 新增 `scripts/gen-summary.mjs` 生成 `src/data/phrases/summary.ts`：总量、分类计数、分类示例短语（SEO 描述用）、主题标签计数、装饰短语；`package.json` 加 `gen:summary`。
+- `App.vue` 改读摘要；分类页的面包屑 / 词条集合 / FAQ 的 JSON-LD 移到 `CategoryView.vue`（语料与分类文案本来就由它加载），外壳不再为 SEO 带语料。
+- `validate-phrases.mjs` 新增 `validateSummary`，`core.test.ts` 新增摘要一致性用例：摘要任一项与实际语料不符即失败。
+- `HomeView` 的「是否有草稿」改到 `onMounted` 里读（`loadSessionDraft` 依赖 sessionStorage），避免 SSG 预渲染与客户端首帧不一致。
+
+**不做**：不做运行时 fetch；不新增路由；不改判定/记忆/队列算法；不为拆包调整 `ssgOptions.includedRoutes`。
+
+**验收（可复测）**
+
+- 首页首屏静态 JS 从 112.8 KiB 降到 **≤ 80 KiB**；首屏 chunk 图里不出现全量语料（`phrases` / `details`），`app` chunk 中不再出现语料 id。
+- 五个首页入口都能直达并开练，地址栏不残留 `autostart`；刷新 `/study` 按草稿恢复。
+- 分类页预渲染仍输出两段 JSON-LD（站点级 + 面包屑/词条/FAQ），meta 描述仍列举示例短语。
+- `check:content` / `test` / `typecheck` / `build` 全过。
+
+**落地记录（2026-11-22）**
+
+- 首屏静态 JS：112.8 KiB → **74.2 KiB gz（−34.2%）**，4 个 chunk：`app` 53.8 + `HomeView` 7.8 + `progress` 7.4 + `daily` 7.0。全量基座（`phrases` 28.7）与全量详情（`details` 30.9）都不在首屏；`app` chunk 中语料 id 计数为 0。
+- 外壳减重是主要贡献：`App.vue` 原先同时带着全量基座（约 35 KiB gz）与 `categoryContent`（约 7.3 KiB gz），两者都随每个页面加载。
+- 未达到开盘时估的 ~65 KiB：剩下的 `app` 53.8 KiB 基本是 Vue / Router / Pinia / unhead 与 store 的框架成本，压缩空间有限；首页仍保留 `daily` 基座 7.0 KiB（今日一句 + 演示区）与 `progress`（掌握度 / 到期计数）。
+- 验证：`check:content` 11 类 / 819 条全过；63 项测试；13 页预渲染正常，分类页 `dist/phrases/academic.html` 含 2 段 JSON-LD（`WebSite/Organization/WebApplication` + `BreadcrumbList/CollectionPage/FAQPage`）、标题「学术写作英语短语 · 60 条」；浏览器实测五个首页入口 + 到期复习（写入一条到期进度）均开练正确、query 已清、刷新恢复，console 0 报错。
+- **下一步候选**：`app` 53.8 KiB 里可再拆的只有 store 初始化与 unhead 的按页 head；继续压首屏性价比已下降，建议转向功能与内容。
 
 ---
 

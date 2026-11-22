@@ -32,7 +32,8 @@
 ```bash
 pnpm install
 pnpm dev          # 开发服务器
-pnpm check:content # 内容自检：id/en 唯一、别名长度、例句可挖空、文档条数
+pnpm gen:summary  # 改了短语/分类后重生成首页摘要（src/data/phrases/summary.ts）
+pnpm check:content # 内容自检：id/en 唯一、别名长度、例句可挖空、摘要一致、文档条数
 pnpm test         # 单元测试（pretest 会先跑内容自检）
 pnpm typecheck    # 类型检查
 pnpm build        # 类型检查 + SSG 预渲染构建（含 sitemap/llms.txt/404.html），输出到 dist/

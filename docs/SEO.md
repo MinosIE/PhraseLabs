@@ -34,7 +34,7 @@
 
 | 路由 | 页面 | 处理 | `robots` |
 | --- | --- | --- | --- |
-| `/` | 首页：定位、产品演示区（真实短语的提示 → 输入 → 判定）、宣传叙事（三步循环）、站点特色（四条）与训练入口（今日训练 / 5 条快练 / 到期复习 / 按题型）+ 深色结尾 CTA + 分类网格 | 预渲染；视差短语层 `aria-hidden` 且不进结构化数据，演示区文案来自 `phrases` 并随预渲染输出 | index, follow |
+| `/` | 首页：定位、产品演示区（真实短语的提示 → 输入 → 判定）、宣传叙事（三步循环）、站点特色（四条）与训练入口（今日训练 / 5 条快练 / 到期复习 / 按题型）+ 深色结尾 CTA + 分类网格 | 预渲染；视差短语层 `aria-hidden` 且不进结构化数据，演示区文案来自日常口语数据并随预渲染输出 | index, follow |
 | `/library` | 词库（筛选 + 搜索） | 预渲染 | index, follow |
 | `/phrases/:category` | 分类落地页（11 个，一条动态路由） | 预渲染 | index, follow |
 | `/study` | 答题界面 | 不预渲染，404.html + 客户端路由兜底 | noindex, follow |
@@ -52,7 +52,7 @@
 ### P0 · 元信息地基 ✅ 已完成
 
 - `index.html`：保留 `<div id="app"></div>`；favicon 改绝对路径 `/favicon.svg`（修复嵌套路径 404）；加入首屏主题内联脚本（读 `phraselabs:v1:settings` 的 `theme` + `matchMedia` 写 `data-theme`，避免深色模式闪白）；删除静态 title/description，交给 `useHead` 按页输出。
-- 元信息由 `src/App.vue` 的 `useHead` 在构建期落到每个预渲染页：`title`、`description`、`robots`、`canonical`、`og:*`、`twitter:*`、`htmlAttrs.lang`，以及 `WebSite` + `Organization` + `WebApplication`（`offers.price: 0`）的 JSON-LD `@graph`。
+- 元信息由 `src/App.vue` 的 `useHead` 在构建期落到每个预渲染页：`title`、`description`、`robots`、`canonical`、`og:*`、`twitter:*`、`htmlAttrs.lang`，以及 `WebSite` + `Organization` + `WebApplication`（`offers.price: 0`）的站点级 JSON-LD `@graph`；分类页的面包屑 / `CollectionPage` / `FAQPage` 由 `CategoryView.vue` 追加（外壳因此不必为 SEO 加载全量语料与分类文案，见 E2）。
 - 站点常量集中在 `src/lib/seo.ts`：`SITE_NAME`、`SITE_URL`、`OG_IMAGE`、`canonicalUrl()`、`legacyHashTarget()`；`scripts/postbuild.mjs` 也从这里读 `SITE_URL`。
 - `public/robots.txt`：全站允许 + 显式允许 `GPTBot` / `ClaudeBot` / `PerplexityBot` / `Google-Extended` / `Bytespider`，带 `Sitemap` 绝对地址。
 - `public/og.png`：1792×1024 分享图。
@@ -96,7 +96,7 @@
 
 1. **分类文案**：`src/data/categoryContent.ts` 为 11 个分类各写一段唯一介绍（≥ 80 字）加一句典型场景，回答「这类表达是什么 / 什么场景用 / 难点在哪」；类型是 `Record<CategoryId, CategoryContent>`，漏一类就编译失败。
 2. **FAQ**：每类 3 条，写在同一个文件里，同时用于页面展示与 `FAQPage`；问答都有最小长度断言，避免空壳。
-3. **结构化数据**（`App.vue` 的 `buildStructuredData()` 按页输出）：
+3. **结构化数据**（站点级在 `App.vue`，分类页在 `CategoryView.vue`）：
    - 分类页：`BreadcrumbList` + `CollectionPage`（`numberOfItems` 取实时条数）+ `DefinedTermSet`（前 12 条 `DefinedTerm`）+ `FAQPage`
    - 首页与其余页：只有 `WebSite` / `Organization` / `WebApplication`
 4. **可选事实**：条数不在文案里写死，分类页由数据实时渲染，避免扩充后文案过期。
