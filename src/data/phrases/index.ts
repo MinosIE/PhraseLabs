@@ -1,4 +1,5 @@
 import type { Phrase } from '@/types/phrase'
+import { collectTags } from '@/lib/tags'
 import { dailyPhrases } from './daily'
 import { workPhrases } from './work'
 import { phrasalPhrases } from './phrasal'
@@ -32,3 +33,6 @@ export const phraseCountByCategory = phrases.reduce<Record<string, number>>((cou
   counts[phrase.category] = (counts[phrase.category] ?? 0) + 1
   return counts
 }, {})
+
+/** 主题标签与条数（口语、职场、影视…），词库筛选与首页「按主题练」共用 */
+export const tagCounts = collectTags(phrases)

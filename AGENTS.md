@@ -51,6 +51,7 @@ src/
     speech.ts            Web Speech 朗读、音色单次探测与能力检测、playback Promise
     feedback.ts          结果标题/鼓励文案
     mistakes.ts          错词本：`isMistake`/`pickMistakes`（错 ≥2 次或错误率过半，掌握后自动淡出）
+    tags.ts              主题标签：`collectTags`/`pickByTag`/`pickFeaturedTags`（词库筛选与首页按主题练共用）
     seo.ts               站点常量（SITE_URL/OG_IMAGE）、canonicalUrl、legacyHashTarget
     daily.ts             「今日一句」按日期哈希挑选（同日稳定、跨天轮换）
   data/
@@ -96,7 +97,8 @@ vite.config.ts          VITE_BASE_PATH → base；ssgOptions（dirStyle + includ
 | 答题流程 | `views/StudyView.vue` | 队列消费、提交/判定/弹框、快捷键、loading、草稿恢复、空答案拦截、结算页四指标与「再来一轮」 | 判定算法、记忆算法 |
 | 判定 | `lib/grade.ts` | 返回 `correct \| near \| wrong`、距离、文案 | 更新进度、UI |
 | 归一化 | `lib/normalize.ts` | 英文转小写/统一标点/编辑距离；中文去标点 | 业务判词 |
-| 队列 | `lib/session.ts` | 到期优先 + 随机补充 + `mixed` 题型分配 + 临时范围（分类/模式/指定集合） | 落盘 |
+| 队列 | `lib/session.ts` | 真到期优先（按保留率升序）→ 错词插队（上限每日目标 30%）→ 随机补足 + `mixed` 题型分配 + 临时范围（分类/模式/指定集合） | 落盘 |
+| 主题标签 | `lib/tags.ts` | 标签汇总排序、按标签取短语、首页主题入口顺序 | 分类（`data/categories.ts`）、UI 样式 |
 | 记忆 | `lib/srs.ts` | 遗忘曲线：稳定度 `stability`、保留率 `retrievability`、`applyReview`/`masterProgress`、到期判断、`countDueBefore`、连续天数 | 统计口径以外的 UI |
 | 存储 | `lib/storage.ts` | `phraselabs:v1:*` 读写（含 `best-combo`）、导出/导入、旧数据迁移、sessionStorage 草稿 | 业务校验 |
 | 朗读 | `lib/speech.ts` | 音色优选、单次探测+缓存、`hasEnglishVoice` 能力检测、`rate=1`、`onstart` 即结束 loading | 判定、入口显隐 |
@@ -311,9 +313,11 @@ Vitest，唯一测试文件 `src/lib/__tests__/core.test.ts`，当前 54 项。�
 
 ### 5.6 后续规划 / 路线图
 
-见 `docs/PRODUCT.md`「路线」与 `docs/ROADMAP.md`：A1/A2/A3/B1/B2 已完成，B3 第 1 轮已完成（后续常态）→ C1 SEO P4（待数据）/ C2 成绩卡 / C3 依赖升级；P0–P2 已完成，P3 进行中（当前 789 条，内容继续扩充）。架构/接口/约定变更时同步更新本文件，否则指南会快速腐化。
+见 `docs/PRODUCT.md`「路线」与 `docs/ROADMAP.md`：A1/A2/A3/B1/B2 已完成，B3 第 1 轮已完成（后续常态），D1 已完成 → D2 PWA / D3 首屏瘦身 / D4 内容补齐 → C1 SEO P4（待数据）/ C2 成绩卡 / C3 依赖升级；P0–P2 已完成，P3 进行中（当前 789 条，内容继续扩充）。架构/接口/约定变更时同步更新本文件，否则指南会快速腐化。
 
 ## 6. 变更记录（本文件）
+
+- 2026-11-21：D1 完成。新增 `lib/tags.ts`（`collectTags` 按条数降序、`pickByTag`、`pickFeaturedTags` 保证首页先展示跨分类标签），`data/phrases/index.ts` 导出派生常量 `tagCounts`；词库新增主题 chip 行（可与分类/难度/状态叠加），首页新增「按主题练一轮」（随机 20 条）；`buildQueue` 改为「真到期（学过且到期）→ 错词插队（上限 `max(1, round(dailyGoal×0.3))`）→ 随机补足」，没学过的词不再当作到期项占满名额。测试 54 → 61 项。
 
 - 2026-11-19：新建。基于实际源码、配置、CI 与文档取证，压缩为面向 Agent 的操作手册与索引；记录已移除的跟写/听写题型及真实踩坑清单。
 - 2026-11-19：交互评审后的调整：空答案不判定、判定中禁跳、弹框内朗读与背景 `inert`、手动纠错同步本轮、重练不再改变进度分母、本轮草稿刷新可恢复、首页分类只影响本轮、词库分批渲染与一键开练、统计薄弱清单；测试 22 → 26 项。

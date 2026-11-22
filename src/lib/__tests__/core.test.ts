@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { createMemoryHistory, createRouter } from 'vue-router'
-import { phrases, phraseById, phraseCountByCategory } from '@/data/phrases'
+import { phrases, phraseById, phraseCountByCategory, tagCounts } from '@/data/phrases'
 import { categories } from '@/data/categories'
 import { categoryContent, contentOf } from '@/data/categoryContent'
 import { hashDay, pickDaily } from '@/lib/daily'
@@ -30,6 +30,7 @@ import {
   TARGET_RETENTION,
 } from '@/lib/srs'
 import { buildQueue } from '@/lib/session'
+import { collectTags, pickByTag, pickFeaturedTags } from '@/lib/tags'
 import {
   exportData,
   importData,
@@ -40,7 +41,7 @@ import {
 } from '@/lib/storage'
 import { useSessionStore } from '@/stores/session'
 import { useProgressStore } from '@/stores/progress'
-import type { CategoryId } from '@/types/phrase'
+import type { CategoryId, Phrase } from '@/types/phrase'
 import type { DayStats, SessionDraft } from '@/types/progress'
 
 const lookForward = phraseById.get('phrasal-003')!
@@ -241,7 +242,131 @@ describe('错词本', () => {
   })
 })
 
+describe('主题标签', () => {
+  const fake = (id: string, tags: string[]): Phrase => ({
+    id,
+    en: 'in the end',
+    zh: '最后',
+    aliases: ['最后'],
+    category: 'connectors',
+    tags,
+    level: 1,
+    exampleEn: 'In the end we left.',
+    exampleZh: '最后我们走了。',
+  })
+
+  it('按条数降序、同条数按名称排，并跳过无标签条目', () => {
+    const list = collectTags([
+      fake('a', ['口语', '高频']),
+      fake('b', ['口语']),
+      fake('c', ['影视']),
+      fake('d', []),
+    ])
+    expect(list).toEqual([
+      { tag: '口语', count: 2 },
+      { tag: '高频', count: 1 },
+      { tag: '影视', count: 1 },
+    ])
+  })
+
+  it('按标签取短语，空标签等于不过滤，未知标签返回空', () => {
+    const list = [fake('a', ['口语']), fake('b', ['职场'])]
+    expect(pickByTag(list, '口语').map((phrase) => phrase.id)).toEqual(['a'])
+    expect(pickByTag(list, '')).toHaveLength(2)
+    expect(pickByTag(list, '学术')).toEqual([])
+  })
+
+  it('全库标签计数与每条 tags 总数一致', () => {
+    const total = tagCounts.reduce((sum, item) => sum + item.count, 0)
+    expect(total).toBe(phrases.reduce((sum, phrase) => sum + phrase.tags.length, 0))
+    expect(tagCounts.length).toBeGreaterThanOrEqual(10)
+  })
+
+  it('首页主题按指定顺序优先，缺失的跳过，剩余按条数补齐', () => {
+    const list = [
+      { tag: '习语', count: 202 },
+      { tag: '口语', count: 214 },
+      { tag: '职场', count: 71 },
+      { tag: '影视', count: 40 },
+      { tag: '叠词', count: 24 },
+    ]
+    expect(pickFeaturedTags(list, ['口语', '职场', '影视']).map((item) => item.tag)).toEqual([
+      '口语',
+      '职场',
+      '影视',
+      '习语',
+      '叠词',
+    ])
+    // limit 先截 prioritized 之后再补齐；列表里没有的标签自动跳过
+    expect(pickFeaturedTags(list, ['口语', '邮件', '职场'], 2).map((item) => item.tag)).toEqual([
+      '口语',
+      '职场',
+    ])
+  })
+})
+
 describe('session', () => {
+  /** 错 3 次、稳定度 2 天、还没到期：典型「错了但今天不到复习日」的词 */
+  const shakyRecord = (now: number) => ({
+    ...createProgress(now),
+    stability: 2,
+    correct: 0,
+    wrong: 3,
+    lastReviewed: now,
+    nextReview: now + 2 * DAY_MS,
+  })
+  const dailyIds = phrases.filter((phrase) => phrase.category === 'daily').map((phrase) => phrase.id)
+
+  it('没到期但属于错词的会优先入队', () => {
+    const now = Date.UTC(2026, 0, 20)
+    const mistakes = dailyIds.slice(0, 2)
+    const progress = Object.fromEntries(mistakes.map((id) => [id, shakyRecord(now)]))
+    const queue = buildQueue(
+      phrases,
+      progress,
+      { categories: ['daily'], dailyGoal: 5, mode: 'zh-en' },
+      now,
+    )
+    // 全是没学过的新词时，错词也要挤进队首（上限要求至少 1 个）
+    expect(queue.map((item) => item.phraseId).slice(0, 2).sort()).toEqual([...mistakes].sort())
+    expect(queue).toHaveLength(5)
+  })
+
+  it('错词最多占每日目标三成，真到期项一个不少', () => {
+    const now = Date.UTC(2026, 0, 20)
+    const mistakeIds = dailyIds.slice(0, 4)
+    const dueIds = dailyIds.slice(10, 14)
+    const due = { ...createProgress(now), nextReview: now - DAY_MS }
+    const progress: Record<string, ReturnType<typeof shakyRecord>> = {}
+    for (const id of mistakeIds) progress[id] = shakyRecord(now)
+    for (const id of dueIds) progress[id] = due
+
+    // 每日目标 10 → 错词上限 3：4 个错词只进 3 个，但 4 个到期项必须全在队首
+    const queue = buildQueue(
+      phrases,
+      progress,
+      { categories: ['daily'], dailyGoal: 10, mode: 'zh-en' },
+      now,
+    )
+    const ids = queue.map((item) => item.phraseId)
+    expect(ids.slice(0, 4).sort()).toEqual([...dueIds].sort())
+    expect(ids.filter((id) => mistakeIds.includes(id))).toHaveLength(3)
+    expect(ids).not.toContain(mistakeIds[3])
+  })
+
+  it('指定短语集合时不插入错词', () => {
+    const now = Date.UTC(2026, 0, 20)
+    const [first, second] = dailyIds.slice(20, 22)
+    const queue = buildQueue(
+      phrases,
+      { [dailyIds[0]]: shakyRecord(now) },
+      { categories: [], dailyGoal: 10, mode: 'zh-en' },
+      now,
+      { phraseIds: [first, second] },
+    )
+    expect(queue.map((item) => item.phraseId).sort()).toEqual([first, second].sort())
+  })
+
   it('到期短语优先且不超过每日目标', () => {
     const now = Date.UTC(2026, 0, 1)
     const progress = {

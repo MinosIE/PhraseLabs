@@ -3,11 +3,12 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import gsap from 'gsap'
 import { categories } from '@/data/categories'
-import { phraseById, phraseCountByCategory, phrases } from '@/data/phrases'
+import { phraseById, phraseCountByCategory, phrases, tagCounts } from '@/data/phrases'
 import { pickDaily } from '@/lib/daily'
 import { dayKey } from '@/lib/date'
 import { shuffle } from '@/lib/session'
 import { speakEn } from '@/lib/speech'
+import { pickByTag, pickFeaturedTags } from '@/lib/tags'
 import {
   computeStreak,
   DECAY,
@@ -148,6 +149,25 @@ function startQuick(): void {
   sessionStore.startWith(
     shuffle(phrases).slice(0, 5).map((phrase) => phrase.id),
     '5 条快练',
+  )
+  void router.push('/study')
+}
+
+/**
+ * 首页主题优先展示「跨分类」的标签：习语、动词短语、介词搭配这类本身就是分类，
+ * 分类卡片已经给过入口，再占首页名额会把职场 / 邮件 / 影视挤没。
+ */
+const FEATURED_TAGS = ['口语', '高频', '职场', '邮件', '影视', '正式', '基础', '重复']
+const practiceTags = pickFeaturedTags(tagCounts, FEATURED_TAGS)
+const TAG_BATCH = 20
+
+/** 按主题开练：从该标签下随机抽 20 条，短时练完；想要全部就去词库筛选 */
+function startTag(tag: string): void {
+  const sample = shuffle(pickByTag(phrases, tag)).slice(0, TAG_BATCH)
+  if (!sample.length) return
+  sessionStore.startWith(
+    sample.map((phrase) => phrase.id),
+    `主题 · ${tag} · ${sample.length} 条`,
   )
   void router.push('/study')
 }
@@ -607,6 +627,30 @@ onUnmounted(() => {
       <p class="small muted" style="margin-top: 14px">
         每个分类页有这类表达的介绍、练习建议与全部词条；也可以在词库按状态、难度筛选后直接开练。
       </p>
+    </section>
+
+    <section class="section" aria-labelledby="tags-heading">
+      <div class="section-head reveal-item">
+        <div>
+          <div class="eyebrow">Topics</div>
+          <h2 id="tags-heading" style="margin-top: 8px">按主题练一轮</h2>
+        </div>
+        <RouterLink class="small muted" to="/library">按主题筛选词库 ↗</RouterLink>
+      </div>
+      <p class="small muted" style="margin-bottom: 14px">
+        每个主题随机抽 20 条，练完就停；想练全量就去词库叠上筛选条件。
+      </p>
+      <div class="chip-row">
+        <button
+          v-for="item in practiceTags"
+          :key="item.tag"
+          class="chip"
+          type="button"
+          @click="startTag(item.tag)"
+        >
+          {{ item.tag }} · {{ item.count }}
+        </button>
+      </div>
     </section>
 
     <section class="landing-cta reveal-item" aria-labelledby="cta-heading">

@@ -1,7 +1,7 @@
 # 下一步计划（Roadmap）
 
 > 维护约定：每完成一项就在这里勾掉并把细节挪进 `docs/PRODUCT.md` / `docs/ARCHITECTURE.md`；新增计划先写清「做 / 不做 / 验收」，再动代码。
-> 最后更新：2026-11-20 · 适用：`main` 分支（当前 `a4818c7`）
+> 最后更新：2026-11-21 · 适用：`main` 分支（当前 `fe22083`）
 
 ## 0. 基线快照
 
@@ -10,7 +10,7 @@
 | 内容 | 11 类 / 789 条短语，`pnpm check:content` 全过（id/en 唯一、别名 ≥2 汉字、`exampleEn` 可挖空、文档数字一致） |
 | 题型 | 中→英 / 英→中 / 例句填空 + 混合（`mixed` 只在生成队列时解析） |
 | 记忆 | 记忆稳定度 + 保留率 \(R=0.9^{\Delta t/S}\)，答对 ×1.9、答错 ×0.4，≥15 天算掌握；旧 Leitner `box` 自动换算为 1/1/2/4/7/15 天 |
-| 测试 | Vitest 单文件 54 项，`pretest` 自动跑内容校验 |
+| 测试 | Vitest 单文件 61 项，`pretest` 自动跑内容校验 |
 | 构建 | vite-ssg 预渲染 13 页（首页 + 词库 + 11 分类）；`postbuild` 生成 404 / sitemap / llms.txt 并校验产物 |
 | 部署 | GitHub Pages + Actions（先测后构建）；`main` 推送即发布 |
 | 已知债务 | 配置层用正则读 TS 源（`vite.config.ts` / `postbuild.mjs`）；分类文案里举例了具体条目 |
@@ -28,6 +28,10 @@
 | C1 | SEO P4 短语详情页 | 中（长尾流量） | 3–4 天 | 上线数据观察 4–6 周 | R3 | 阻塞（缺数据） |
 | C2 | 成绩卡分享 | 低中（传播） | 1 天 | 设计定稿 | R3 可选 | 待产品确认 |
 | C3 | 依赖升级 | 中（安全） | 0.5 天/轮 | 见 §2.C3 约束 | 每季度 | 待做 |
+| D1 | 标签练习 + 错词优先入队 | 高（直接决定「今天练什么」） | 1 天 | 无 | 立即 | ✅ 已完成 2026-11-21 |
+| D2 | PWA 离线与主屏安装 | 中高（习惯养成 / 断网可用） | 1 天 | D1 后做，避免合并冲突 | 紧随 D1 | 待做 |
+| D3 | 首屏瘦身（语料按需加载） | 中（移动端首屏） | 1 天 | 依赖 D2 的缓存策略 | R4 | 待做 |
+| D4 | 内容补齐（L5 难度 + tip 覆盖） | 中（内容纵深） | 长尾 | 无 | 持续 | 待做 |
 
 ## 2. 详细方案
 
@@ -166,6 +170,73 @@
 - `@unhead/vue` 必须与 `vite-ssg` 依赖的实例一致（当前 2.x），**不要升到 3.x**，否则 head 标签可能重复或丢失。
 - `pnpm-lock.yaml` 只允许 `pnpm install` 更新，禁止手改；CI 使用 `--frozen-lockfile`。
 - TypeScript / Vite 大版本升级后重点回归：`ssgOptions.includedRoutes`、`vue-tsc -b`、`erasableSyntaxOnly` 相关写法（禁止 enum / 参数属性）。
+
+---
+
+### D 组 · 训练针对性与体验（2026-11-21 立项）
+
+#### D1 · 标签练习 + 错词优先入队（P0）
+
+**背景**：789 条短语共带 14 类标签（口语 214 / 习语 202 / 高频 173 / 基础 98 / 动词短语 97 / 正式 96 / 一词多义 84 / 介词搭配 81 / 职场 71 / 重复 62 / 连接词 44 / 影视 40 / 邮件 25 / 叠词 24），目前只作为徽标展示与搜索词，练不进去；错词本只能「看榜 + 手动开练」，未到期的错词不会优先出现在每天队列里。
+
+**做什么**
+
+1. `src/lib/tags.ts`（纯函数）：`collectTags(phrases)` 返回 `{ tag, count }[]`（按条数降序、同数按名称），`pickByTag(phrases, tag)` 过滤；`data/phrases/index.ts` 导出派生好的 `tagCounts`，与 `phraseCountByCategory` 并列。
+2. `LibraryView`：在分类 chip 行下新增「主题」chip 行（全部主题 + 14 个标签带条数），接入 `filtered`，计入 `hasFilter` / `resetFilters` / 重置 `visibleCount` 的 watch。
+3. `HomeView`：在「按场景找短语」下方新增「按主题练」紧凑 chip 行（前 8 个高频标签），点击直接开练该标签下随机 20 条（`startWith`，标签如 `主题 · 口语 · 20 条`）；不新增路由。
+4. `lib/session.ts` `buildQueue`：在到期项之后插入「未到期但属于错词」的条目，按 `pickMistakes` 的顺序（错次 → 错误率 → 稳定度），上限 `max(1, round(dailyGoal × 0.3))`，再随机补足剩余名额；指定集合（`phraseIds`）时不做这一步。
+
+**不做**：不做「按标签设每日目标」（设置字段膨胀）；不改 `AppData` 版本；不新增存储键。
+
+**测试**：`collectTags` 排序与计数、`pickByTag` 空结果；`buildQueue` 「错词未到期也会入队」「错词上限 ≤ 30% 且不挤掉到期项」「指定集合不受影响」。
+
+**验收**：词库能按主题筛选并一键练筛选结果；首页主题 chip 开练队列只含该标签；答错 2 次的短语在第 2 天（未到期）仍出现在队列中且位置靠前。
+
+**文档**：`PRODUCT` 学习流程/词库小节、`AGENTS` §1.2/§1.4/§3.3、`QA`、本文件。
+
+**落地记录（2026-11-21）**
+
+- `lib/tags.ts`：`collectTags`（条数降序、同数按名称）、`pickByTag`、`pickFeaturedTags`（保证首页先展示跨分类标签；缺失自动跳过、剩余按条数补齐）；`data/phrases/index.ts` 导出派生常量 `tagCounts`。
+- 词库：分类 chip 行下方新增主题 chip 行（14 个标签带条数），参与 `filtered` / `hasFilter` / `resetFilters` / 重置分页的 watch；「练这 N 条」沿用原有逻辑。
+- 首页：「按场景找短语」下方新增「按主题练一轮」，展示 口语 / 高频 / 职场 / 邮件 / 影视 / 正式 / 基础 / 重复 8 个跨分类标签，点击随机 20 条开练。第一期按条数取前 8 会把 职场（71 条，第 9）挤掉，因此改为「策展优先 + 条数补齐」。
+- `buildQueue`：`due` 改为「学过（`progress` 有记录）且到期」，错词从剩余池按 `pickMistakes` 顺序插入，上限 `max(1, round(dailyGoal × 0.3))`，其余随机补足；`phraseIds` 指定集合不受影响。
+- **顺手修掉的坑**：旧实现把「没学过的新词」也算 `isDue`（保留率 0），未学条目一多就把每日目标占满，错词根本没有机会插入 → 现在未学词归入随机补充。
+- 测试 54 → 61 项（标签汇总/筛选/首页顺序、错词插队与上限、到期项不被挤掉、指定集合不插错词）。
+- 浏览器实测：首页 8 个主题 chip 点击进入 `/study`，来源文案「主题 · 口语 · 20 条」；词库点「邮件」筛出 25 条且均带该 badge；console 无报错。
+
+#### D2 · PWA 离线与主屏安装（P1）
+
+**做什么**：`vite-plugin-pwa`（`registerType: 'prompt'`）+ `manifest`（名称、主题色、192/512 图标、`display: standalone`、`start_url` 带 base）；`App.vue` 加「有新版本，点此刷新」条；离线策略只用 precache（不缓第三方域名），`navigateFallback` 指向预渲染的 `404.html`；`postbuild` 已有的产物不受影响。
+
+**不做**：不做后台同步、不做推送通知、不缓存百度统计脚本。
+
+**约束**：`pnpm-lock.yaml` 只由 `pnpm add` 更新；`deploy.yml` 不改；SW 文件名固定带版本号，避免旧 SW 长期驻留。
+
+**验收**：`build` 产物含 `sw.js` + `manifest.webmanifest`；断网刷新仍可进入首页与学习页；旧缓存版本下首页出现更新提示；Lighthouse PWA 项全绿。
+
+**文档**：`AGENTS` §1.2/§1.3、`ARCHITECTURE` 部署小节、`SEO.md`（`manifest` 与 sitemap 无冲突说明）、`QA`。
+
+#### D3 · 首屏瘦身（P2）
+
+**现状**：首屏引用 `app` 71 KB + `HomeView` 18 KB + `settings` 290 KB（全量语料）= 约 380 KB。
+
+**做什么**：把语料按分类拆成动态 import（`data/phrases/index.ts` 提供 `loadCategory(id)` 与 `loadAll()`），首页只取计数与「今日一句」所需的最小集合；词库/学习页再按需加载全量；`buildQueue` 改为接收已加载的数组。
+
+**不做**：不改判定/排期算法；不做服务端分页。
+
+**风险**：SSG 预渲染在 Node 端需要同步数据，动态 import 要让 `includedRoutes` 生成的页面在构建期仍能拿到正文 → 保留一份构建期静态导入，运行期走动态加载。
+
+**验收**：首屏 JS 降至约 90 KB（±20%）；首页、词库、学习、统计、设置五页功能与预渲染正文不变；`build` 13 页仍通过 postbuild 校验。
+
+#### D4 · 内容补齐（P2，长尾）
+
+**现状**：`check:content` 软指标显示 L5 占 0%、`tip` 覆盖率 3%。
+
+**做什么**：每轮补 20–30 条，优先「高频但易错」的 L4/L5 短语（学术写作、商务邮件、习语），同步补 `tip`（≤40 字的一条用法提醒）；保持每个 `aliases` ≥2 汉字、`exampleEn` 逐字含 `en`。
+
+**验收**：每轮 `check:content` 通过且 L5 占比、`tip` 覆盖率单调上升；文档条数与分类数同步。
+
+---
 
 ## 3. 每次迭代的统一门禁
 

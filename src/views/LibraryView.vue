@@ -3,7 +3,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import SelectField from '@/components/SelectField.vue'
 import { categories, categoryName } from '@/data/categories'
-import { phraseCountByCategory, phrases } from '@/data/phrases'
+import { phraseCountByCategory, phrases, tagCounts } from '@/data/phrases'
 import { useDebounce } from '@/composables/useDebounce'
 import { isMistake } from '@/lib/mistakes'
 import { isDue, isMastered } from '@/lib/srs'
@@ -24,6 +24,7 @@ const PAGE_SIZE = 60
 const query = ref('')
 const debouncedQuery = useDebounce(query)
 const activeCategory = ref<CategoryId | ''>('')
+const activeTag = ref('')
 const activeLevel = ref<Level | ''>('')
 const sort = ref<'default' | 'level' | 'mastery'>('default')
 const status = ref<'all' | 'due' | 'mastered' | 'favorite' | 'mistake'>('all')
@@ -43,6 +44,7 @@ const filtered = computed(() => {
       if (!haystack.includes(keyword)) return false
     }
     if (activeCategory.value && phrase.category !== activeCategory.value) return false
+    if (activeTag.value && !phrase.tags.includes(activeTag.value)) return false
     if (activeLevel.value && phrase.level !== activeLevel.value) return false
 
     const progress = progressStore.progress[phrase.id]
@@ -68,7 +70,7 @@ const visible = computed(() => filtered.value.slice(0, visibleCount.value))
 const canLoadMore = computed(() => visibleCount.value < filtered.value.length)
 
 // 只在这几个筛选条件变化时回到第一批，收藏或进度变化不打断浏览位置
-watch([debouncedQuery, activeCategory, activeLevel, sort, status], () => {
+watch([debouncedQuery, activeCategory, activeTag, activeLevel, sort, status], () => {
   visibleCount.value = PAGE_SIZE
 })
 
@@ -111,6 +113,7 @@ const hasFilter = computed(
   () =>
     !!query.value ||
     !!activeCategory.value ||
+    !!activeTag.value ||
     !!activeLevel.value ||
     status.value !== 'all' ||
     sort.value !== 'default',
@@ -128,6 +131,7 @@ function clearQuery(): void {
 function resetFilters(): void {
   query.value = ''
   activeCategory.value = ''
+  activeTag.value = ''
   activeLevel.value = ''
   status.value = 'all'
   sort.value = 'default'
@@ -240,6 +244,22 @@ function onSort(value: string | number): void {
         @click="activeCategory = category.id"
       >
         {{ category.name }} · {{ phraseCountByCategory[category.id] ?? 0 }}
+      </button>
+    </div>
+
+    <div class="chip-row" style="margin-top: 8px">
+      <button class="chip" :class="{ active: activeTag === '' }" type="button" @click="activeTag = ''">
+        全部主题
+      </button>
+      <button
+        v-for="item in tagCounts"
+        :key="item.tag"
+        class="chip"
+        :class="{ active: activeTag === item.tag }"
+        type="button"
+        @click="activeTag = item.tag"
+      >
+        {{ item.tag }} · {{ item.count }}
       </button>
     </div>
 
