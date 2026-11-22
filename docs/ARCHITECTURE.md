@@ -111,6 +111,10 @@ interface AppData {        // 导出/导入格式
 - Vite `base` 读取 `VITE_BASE_PATH`，本地默认 `/`；GitHub Actions 构建时注入 `/<仓库名>/`。
 - `public/.nojekyll` 避免 Jekyll 处理资源目录。
 - 工作流先执行 `pnpm test` 再构建，任一失败都不会部署。
+- PWA（离线 + 主屏安装）由 `vite-plugin-pwa` 在 `vite-ssg build` 阶段生成：`registerType: 'prompt'`、`injectRegister: false`（由 `composables/usePwaUpdate.ts` 手动注册），产物为 `dist/sw.js` + `dist/manifest.webmanifest`，`start_url` / `scope` / 图标路径随 `base` 自动带仓库前缀。
+- 离线策略只用 precache（`globPatterns` 含 `js/css/html/svg/png/webmanifest`，13 个预渲染页一并入缓存），不注册任何运行时缓存、不缓第三方域名；导航未命中时 `navigateFallback: 'index.html'` 回落到 app shell，`/study`、`/stats`、`/settings` 因此断网也能用。
+- 新版本不自动刷新：SW 拉到新版本后 `App.vue` 顶部出现「新版本已就绪」，用户点「刷新启用」才 `skipWaiting` + 重载，避免训练中途被打断。
+- `scripts/postbuild.mjs` 额外校验 `sw.js` / `manifest.webmanifest` 与 `icons` 存在，避免 PWA 默默失效。
 
 ## 扩展点
 
@@ -125,5 +129,6 @@ interface AppData {        // 导出/导入格式
 
 - 中文同义词依赖人工维护的 `aliases`，未收录的表达可能误判；用户可用「这条我会了」把该短语直接标为已掌握并跳过重练，但判定结果与统计不会被改写。
 - `localStorage` 通常只有几 MB，当前只存进度与统计，足够长期使用。
+- 离线可用性依赖 Service Worker：首次访问必须联网完成预缓存；用户若在浏览器里清除了站点数据，缓存与进度会一起丢失（导出的 JSON 备份仍可恢复进度）。
 - 本轮草稿依赖 `sessionStorage`，隐私模式或极旧浏览器可能不可用；不可用时退化为不落盘，刷新即重开一轮。草稿里不含 `recordBeaten`（「新纪录」徽标）与 `lastOptions`（再来一轮的范围），刷新后这两个状态重置。
 - Web Speech API 的可用性和音色由浏览器/系统决定；朗读仅为辅助，不影响作答与判定。没有英文音色时入口整体隐藏，而不是留一个点了没反应的按钮；音色在页面加载后才异步就绪的环境，会在 `voiceschanged` 后自动放出入口。

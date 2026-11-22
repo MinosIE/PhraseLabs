@@ -169,6 +169,16 @@ async function checkPages(categories) {
   if (!distEntries.includes('sitemap.xml')) {
     fail('dist/sitemap.xml 没有生成')
   }
+  // PWA：Service Worker 与 manifest 由 vite-plugin-pwa 在 build 阶段生成，缺一个就等于离线/安装失效
+  for (const file of ['sw.js', 'manifest.webmanifest']) {
+    if (!distEntries.includes(file)) {
+      fail(`dist/${file} 没有生成，检查 vite.config.ts 里的 VitePWA 配置`)
+    }
+  }
+  const manifest = JSON.parse(await readFile(join(dist, 'manifest.webmanifest'), 'utf8'))
+  if (!Array.isArray(manifest.icons) || manifest.icons.length === 0) {
+    fail('manifest.webmanifest 缺少 icons，主屏安装会失败')
+  }
 }
 
 try {

@@ -12,7 +12,7 @@
 | 记忆 | 记忆稳定度 + 保留率 \(R=0.9^{\Delta t/S}\)，答对 ×1.9、答错 ×0.4，≥15 天算掌握；旧 Leitner `box` 自动换算为 1/1/2/4/7/15 天 |
 | 测试 | Vitest 单文件 61 项，`pretest` 自动跑内容校验 |
 | 构建 | vite-ssg 预渲染 13 页（首页 + 词库 + 11 分类）；`postbuild` 生成 404 / sitemap / llms.txt 并校验产物 |
-| 部署 | GitHub Pages + Actions（先测后构建）；`main` 推送即发布 |
+| 部署 | GitHub Pages + Actions（先测后构建）；`main` 推送即发布；PWA 产物（`sw.js` / `manifest.webmanifest`）随构建生成，`postbuild` 校验 |
 | 已知债务 | 配置层用正则读 TS 源（`vite.config.ts` / `postbuild.mjs`）；分类文案里举例了具体条目 |
 
 ## 1. 优先级总览
@@ -29,7 +29,7 @@
 | C2 | 成绩卡分享 | 低中（传播） | 1 天 | 设计定稿 | R3 可选 | 待产品确认 |
 | C3 | 依赖升级 | 中（安全） | 0.5 天/轮 | 见 §2.C3 约束 | 每季度 | 待做 |
 | D1 | 标签练习 + 错词优先入队 | 高（直接决定「今天练什么」） | 1 天 | 无 | 立即 | ✅ 已完成 2026-11-21 |
-| D2 | PWA 离线与主屏安装 | 中高（习惯养成 / 断网可用） | 1 天 | D1 后做，避免合并冲突 | 紧随 D1 | 待做 |
+| D2 | PWA 离线与主屏安装 | 中高（习惯养成 / 断网可用） | 1 天 | D1 后做，避免合并冲突 | 紧随 D1 | ✅ 已完成 2026-11-21 |
 | D3 | 首屏瘦身（语料按需加载） | 中（移动端首屏） | 1 天 | 依赖 D2 的缓存策略 | R4 | 待做 |
 | D4 | 内容补齐（L5 难度 + tip 覆盖） | 中（内容纵深） | 长尾 | 无 | 持续 | 待做 |
 
@@ -215,6 +215,18 @@
 **验收**：`build` 产物含 `sw.js` + `manifest.webmanifest`；断网刷新仍可进入首页与学习页；旧缓存版本下首页出现更新提示；Lighthouse PWA 项全绿。
 
 **文档**：`AGENTS` §1.2/§1.3、`ARCHITECTURE` 部署小节、`SEO.md`（`manifest` 与 sitemap 无冲突说明）、`QA`。
+
+**落地记录（2026-11-21）**
+
+- 依赖：`vite-plugin-pwa@2`（`registerType: 'prompt'`、`injectRegister: false`）+ `workbox-window`（`virtual:pwa-register` 的 peer，不装会构建失败）。`pnpm-lock.yaml` 由 `pnpm add` 更新。
+- `vite.config.ts`：`manifest` 名称/短名/主题色/背景色/`display: standalone`/`start_url`与`scope` 取 `base`/192+512 图标；`workbox.globPatterns` 含 html（13 个预渲染页入缓存）、`navigateFallback: 'index.html'`、`navigateFallbackDenylist: /\.(xml|txt)$/`、`cleanupOutdatedCaches`。不做运行时缓存、不缓第三方域名。
+- 新增 `composables/usePwaUpdate.ts`（`virtual:pwa-register` 只在客户端调用，构建期 `window` 不存在直接跳过）；`App.vue` 顶部「新版本已就绪 / 刷新启用 / 稍后再说」条，样式 `.update-bar` 在 `styles/base.css`。
+- 图标：从 `public/favicon.svg` 用 `qlmanage -t -s 512` + `sips` 生成 `icons/icon-512.png`、`icons/icon-192.png`，并把 `apple-touch-icon.png` 放到 `public/` 根（ `index.html` 早就引用了它，之前一直是 404）。
+- `scripts/postbuild.mjs` 新增门禁：`sw.js`、`manifest.webmanifest` 必须存在，且 manifest 带 icons。
+- 实测（preview :4185）：SW 激活并控制页面（scope `/`），34 项预缓存含 `index.html` / `library.html` / `phrases/daily.html`；**kill 掉预览进程后**首页、`/study`（未预渲染，走 app shell）、`/library` 均正常渲染，console 0 错误（只有百度统计第三方脚本请求失败，与应用无关）。
+- 带 `VITE_BASE_PATH=/PhraseLabs/` 构建复测：manifest 的 `start_url`/`scope`/图标路径均自动带前缀，precache 36–38 项。
+- **未做**：推送通知、后台同步、运行时接口缓存；`viewport-fit=cover` 仍未开（理由同 B2）。
+- **未验证**：真机「添加到主屏幕」安装流程与 iOS Safari 独立窗口下的安全区表现。
 
 #### D3 · 首屏瘦身（P2）
 

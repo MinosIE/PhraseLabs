@@ -1,6 +1,7 @@
 import { createPinia } from 'pinia'
 import { ViteSSG } from 'vite-ssg'
 import App from './App.vue'
+import { setupPwa } from './composables/usePwaUpdate'
 import { legacyHashTarget } from './lib/seo'
 import { routes } from './router'
 import './style.css'
@@ -23,5 +24,7 @@ export const createApp = ViteSSG(
   },
   ({ app }) => {
     app.use(createPinia())
+    // 注册 Service Worker（离线 + 主屏安装）；开发环境没有 SW，内部直接跳过
+    setupPwa()
   },
 )

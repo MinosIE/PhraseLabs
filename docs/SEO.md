@@ -141,6 +141,8 @@
 | 分类页与词库页内容重复被判近似 | 分类页有独立介绍与 FAQ，词库页保持工具属性并 `canonical` 指向自身；不做跨页复制整段文案 |
 | 百度对 `github.io` 抓取不稳定 | 先保证 Google/Bing；若重视中文搜索，评估绑定自定义域名或迁 Cloudflare Pages |
 | 构建链变化影响 CI | `deploy.yml` 不改，仍只跑 `pnpm build`；构建失败时 postbuild 会非零退出，门禁照旧 |
+| PWA 让访客长期停在旧版本，影响新内容被收录/看到 | `registerType: 'prompt'`：拉到新版本只提示，不自动刷新；`cleanupOutdatedCaches` 清理旧缓存；`sw.js` 本身用 `Service-Worker-Allowed` 默认作用域，不干预 HTML 的 `canonical` 与 `robots` |
+| SW 预缓存把 `sitemap.xml` / `llms.txt` 也缓住，搜索引擎读到旧版 | `globPatterns` 不含 `xml` / `txt`，且 `navigateFallbackDenylist: /\.(xml|txt)$/` 保证这两个路径不被 app shell 接管 |
 
 回滚方式：P0–P2 每阶段单独提交，出问题按阶段 revert；hash 路由的重定向代码可独立保留，不阻碍回滚。
 

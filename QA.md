@@ -1,5 +1,33 @@
 # QA 验证记录
 
+## 2026-11-21 · D2 PWA 离线与主屏安装（roadmap D2）
+
+### 自动化
+
+- `pnpm test`：61/61 通过；`pnpm typecheck`：通过。
+- `pnpm build`：`precache 38 entries`，生成 `dist/sw.js` 与 `dist/workbox-2fbc6a65.js`；`postbuild` 新增门禁（`sw.js` / `manifest.webmanifest` / icons）均通过。
+- 带 `VITE_BASE_PATH=/PhraseLabs/` 构建复测：`manifest.webmanifest` 的 `start_url`、`scope`、图标路径均自动带前缀；precache 用相对路径（`library.html`、`phrases/daily.html`）。
+
+### 浏览器实测（preview :4185）
+
+- SW 徽标：`navigator.serviceWorker.controller.scriptURL` = `http://localhost:4185/sw.js`，注册 scope 为 `/`。
+- 预缓存：`workbox-precache-v2-…` 共 34 项，含 `index.html`、`library.html`、`phrases/daily.html`。
+- 首次访问未弹「新版本已就绪」条（正常）。
+- **断网语义实测**：kill 掉 preview 进程后刷新首页、直访 `/study`（未预渲染，走 app shell）、`/library`，三者均正常渲染，本地 JS/CSS 全部由 SW 命中；console 0 错误（仅百度统计第三方脚本请求失败）。
+
+### 发现并修掉的问题
+
+| 现象 | 根因 | 修复 |
+| --- | --- | --- |
+| `pnpm build` 报 `Rolldown failed to resolve import "workbox-window"` | `virtual:pwa-register` 需要 `workbox-window` 作为 peer | 显式 `pnpm add -D workbox-window` |
+| `index.html` 引用的 `/apple-touch-icon.png` 一直 404 | 图标从未落盘，只存在于 index.html 的 `<link>` | 由 `favicon.svg` 栅格化为 180px 放到 `public/` 根 |
+| 首次用 `qlmanage -t -s 512` 得到的 PNG 只有 64px 内容贴在左上角 | `-s` 是缩略图盒尺寸，不缩放 SVG 内容 | 先用 `width=512` 的 SVG 副本再栅格化，最后 `sips -Z` 导出 192/180 |
+
+### 未验证
+
+- 真机「添加到主屏幕」安装流程；iOS Safari 独立窗口下的安全区（`viewport-fit=cover` 未开，理由同 B2）。
+- 「新版本已就绪」条的真实触发：需推一次新构建后不关页面刷新才能复现，本地用双次构建无法可靠模拟。
+
 ## 2026-11-21 · D1 标签练习与错词优先（roadmap D1）
 
 ### 自动化

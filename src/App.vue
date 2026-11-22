@@ -5,6 +5,12 @@ import { useHead } from '@unhead/vue'
 import { categories } from '@/data/categories'
 import { contentOf } from '@/data/categoryContent'
 import { phraseCountByCategory, phrases } from '@/data/phrases'
+import {
+  applyPwaUpdate,
+  dismissUpdate,
+  updateDismissed,
+  updateReady,
+} from '@/composables/usePwaUpdate'
 import { OG_IMAGE, SITE_NAME, canonicalUrl } from '@/lib/seo'
 import { useSettingsStore } from '@/stores/settings'
 import type { Theme } from '@/types/progress'
@@ -196,6 +202,11 @@ onUnmounted(() => media?.removeEventListener('change', applyTheme))
 <template>
   <div class="shell">
     <a class="skip-link" href="#main-content">跳到主要内容</a>
+    <div v-if="updateReady && !updateDismissed" class="update-bar" role="status">
+      <span>新版本已就绪</span>
+      <button class="btn btn-sm btn-primary" type="button" @click="applyPwaUpdate">刷新启用</button>
+      <button class="icon-btn" type="button" aria-label="稍后再说" @click="dismissUpdate">✕</button>
+    </div>
     <header class="site-header">
       <div class="header-inner">
         <RouterLink to="/" class="brand">

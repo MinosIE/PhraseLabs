@@ -39,6 +39,28 @@
   flex-direction: column;
 }
 
+/* 新版本提示条：只提示不自动刷新，避免训练中途被打断 */
+.update-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background: var(--ink);
+  color: var(--paper);
+  font-size: 13px;
+}
+
+.update-bar .btn-primary {
+  background: var(--paper);
+  color: var(--ink);
+  border-color: transparent;
+}
+
+.update-bar .icon-btn {
+  color: var(--paper);
+}
+
 .site-header {
   position: sticky;
   top: 0;

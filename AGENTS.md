@@ -40,6 +40,7 @@ src/
     AnswerFeedback.vue   结果弹框（Teleport + GSAP 动画）
     SelectField.vue      自定义下拉（listbox + 键盘导航）
   composables/useDebounce.ts  搜索框防抖
+  composables/usePwaUpdate.ts  Service Worker 注册与「新版本已就绪」状态
   stores/
     session.ts           本轮队列/索引/连对/逐题对错；草稿恢复；撤回重练；最高连对补记与再来一轮范围
     progress.ts          短语记忆状态 + 每日统计 + 历史最高连对，deep watch 落盘
@@ -87,6 +88,7 @@ vite.config.ts          VITE_BASE_PATH → base；ssgOptions（dirStyle + includ
 | 语言 | `typescript` / `vue-tsc` | `~6.0.3` / `^3.3.14` |
 | 测试 | `vitest` | `^5.1.0` |
 | 动效 | `gsap` | `^3.15.1` |
+| PWA | `vite-plugin-pwa` / `workbox-window` | `^2.0.0` / `^7.4.1` |
 
 `@` 别名指向 `src/`（`vite.config.ts` + `tsconfig.app.json` 双处配置）。`tsconfig.app.json` 开启 `noUnusedLocals` / `noUnusedParameters` / `erasableSyntaxOnly`。
 
@@ -313,10 +315,11 @@ Vitest，唯一测试文件 `src/lib/__tests__/core.test.ts`，当前 54 项。�
 
 ### 5.6 后续规划 / 路线图
 
-见 `docs/PRODUCT.md`「路线」与 `docs/ROADMAP.md`：A1/A2/A3/B1/B2 已完成，B3 第 1 轮已完成（后续常态），D1 已完成 → D2 PWA / D3 首屏瘦身 / D4 内容补齐 → C1 SEO P4（待数据）/ C2 成绩卡 / C3 依赖升级；P0–P2 已完成，P3 进行中（当前 789 条，内容继续扩充）。架构/接口/约定变更时同步更新本文件，否则指南会快速腐化。
+见 `docs/PRODUCT.md`「路线」与 `docs/ROADMAP.md`：A1/A2/A3/B1/B2 已完成，B3 第 1 轮已完成（后续常态），D1/D2 已完成 → D3 首屏瘦身 / D4 内容补齐 → C1 SEO P4（待数据）/ C2 成绩卡 / C3 依赖升级；P0–P2 已完成，P3 进行中（当前 789 条，内容继续扩充）。架构/接口/约定变更时同步更新本文件，否则指南会快速腐化。
 
 ## 6. 变更记录（本文件）
 
+- 2026-11-21：D2 完成。接入 `vite-plugin-pwa@2`（`registerType: 'prompt'`、`injectRegister: false`）+ `workbox-window`；`vite.config.ts` 生成 `sw.js` 与 `manifest.webmanifest`（`start_url`/`scope`/图标随 `base`），workbox 只做 precache（html 一并入缓存）+ `navigateFallback: 'index.html'`；`composables/usePwaUpdate.ts` 手动注册，`App.vue` 顶部「新版本已就绪」条；`postbuild` 新增 `sw.js`/manifest/icons 门禁；`apple-touch-icon.png` 补到 `public/` 根。断网实测首页 / `/study` / `/library` 均可用。
 - 2026-11-21：D1 完成。新增 `lib/tags.ts`（`collectTags` 按条数降序、`pickByTag`、`pickFeaturedTags` 保证首页先展示跨分类标签），`data/phrases/index.ts` 导出派生常量 `tagCounts`；词库新增主题 chip 行（可与分类/难度/状态叠加），首页新增「按主题练一轮」（随机 20 条）；`buildQueue` 改为「真到期（学过且到期）→ 错词插队（上限 `max(1, round(dailyGoal×0.3))`）→ 随机补足」，没学过的词不再当作到期项占满名额。测试 54 → 61 项。
 
 - 2026-11-19：新建。基于实际源码、配置、CI 与文档取证，压缩为面向 Agent 的操作手册与索引；记录已移除的跟写/听写题型及真实踩坑清单。
